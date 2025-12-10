@@ -5,6 +5,7 @@ Script to create a simplified Grafana dashboard focused on specific storage driv
 
 import json
 import os
+import yaml
 
 # Datasource UID - defined in config/datasources.yml
 DATASOURCE_UID = "prometheus"
@@ -16,6 +17,101 @@ with open(config_path, 'r') as f:
 
 MONITORED_DRIVES = config['drives']
 MONITORED_MOUNTPOINTS = [d['mountpoint'] for d in MONITORED_DRIVES]
+
+# Load alerts configuration
+alerts_config_path = os.path.join(os.path.dirname(__file__), 'config', 'alerts_config.json')
+with open(alerts_config_path, 'r') as f:
+    alerts_config = json.load(f)
+
+# Store alert rules for unified alerting
+alert_rules = []
+
+def create_unified_alert_rule(uid, title, expr, summary, description, for_duration, threshold):
+    """Helper function to create a Grafana unified alert rule"""
+    return {
+        "uid": uid,
+        "title": title,
+        "condition": "C",
+        "data": [
+            {
+                "refId": "A",
+                "relativeTimeRange": {
+                    "from": 600,
+                    "to": 0
+                },
+                "datasourceUid": DATASOURCE_UID,
+                "model": {
+                    "expr": expr,
+                    "interval": "",
+                    "refId": "A",
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": DATASOURCE_UID
+                    }
+                }
+            },
+            {
+                "refId": "B",
+                "relativeTimeRange": {
+                    "from": 0,
+                    "to": 0
+                },
+                "datasourceUid": "-100",
+                "model": {
+                    "datasource": {
+                        "type": "__expr__",
+                        "uid": "-100"
+                    },
+                    "expression": "A",
+                    "reducer": "last",
+                    "refId": "B",
+                    "type": "reduce"
+                }
+            },
+            {
+                "refId": "C",
+                "relativeTimeRange": {
+                    "from": 0,
+                    "to": 0
+                },
+                "datasourceUid": "-100",
+                "model": {
+                    "datasource": {
+                        "type": "__expr__",
+                        "uid": "-100"
+                    },
+                    "conditions": [
+                        {
+                            "evaluator": {
+                                "params": [threshold],
+                                "type": "gt"
+                            },
+                            "operator": {
+                                "type": "and"
+                            },
+                            "query": {
+                                "params": ["B"]
+                            },
+                            "type": "query"
+                        }
+                    ],
+                    "expression": "B",
+                    "refId": "C",
+                    "type": "threshold"
+                }
+            }
+        ],
+        "noDataState": "NoData",
+        "execErrState": "Alerting",
+        "for": for_duration,
+        "annotations": {
+            "summary": summary,
+            "description": description
+        },
+        "labels": {},
+        "isPaused": False
+    }
+
 
 dashboard = {
     "annotations": {
@@ -59,7 +155,7 @@ panels = []
 
 # Row 1: CPU and Memory (side by side)
 # CPU Usage
-panels.append({
+cpu_panel = {
     "datasource": {"type": "prometheus", "uid": DATASOURCE_UID},
     "fieldConfig": {
         "defaults": {
@@ -89,7 +185,10 @@ panels.append({
             "min": 0,
             "thresholds": {
                 "mode": "absolute",
-                "steps": [{"color": "green", "value": None}, {"color": "red", "value": 80}]
+                "steps": [
+                    {"color": "green", "value": None},
+                    {"color": "red", "value": alerts_config["cpu_alerts"]["threshold_percent"]}
+                ]
             },
             "unit": "percent"
         },
@@ -111,11 +210,26 @@ panels.append({
     ],
     "title": "CPU Usage",
     "type": "timeseries"
-})
+}
+
+# Add CPU alert if enabled
+if alerts_config["cpu_alerts"]["enabled"]:
+    cpu_expr = f"100 - (avg by(instance) (irate(node_cpu_seconds_total{{mode=\"idle\"}}[5m])) * 100)"
+    alert_rules.append(create_unified_alert_rule(
+        uid="cpu-usage-alert",
+        title="CPU Usage Alert",
+        expr=cpu_expr,
+        summary=alerts_config["cpu_alerts"]["message_template"].replace("{{threshold}}", str(alerts_config["cpu_alerts"]["threshold_percent"])).replace("{{duration}}", alerts_config["cpu_alerts"]["sustained_duration"]),
+        description=f"CPU usage has exceeded {alerts_config['cpu_alerts']['threshold_percent']}% for {alerts_config['cpu_alerts']['sustained_duration']}",
+        for_duration=alerts_config["cpu_alerts"]["sustained_duration"],
+        threshold=alerts_config["cpu_alerts"]["threshold_percent"]
+    ))
+
+panels.append(cpu_panel)
 panel_id += 1
 
 # Memory Usage
-panels.append({
+memory_panel = {
     "datasource": {"type": "prometheus", "uid": DATASOURCE_UID},
     "fieldConfig": {
         "defaults": {
@@ -145,7 +259,10 @@ panels.append({
             "min": 0,
             "thresholds": {
                 "mode": "absolute",
-                "steps": [{"color": "green", "value": None}, {"color": "red", "value": 80}]
+                "steps": [
+                    {"color": "green", "value": None},
+                    {"color": "red", "value": alerts_config["memory_alerts"]["threshold_percent"]}
+                ]
             },
             "unit": "percent"
         },
@@ -167,7 +284,22 @@ panels.append({
     ],
     "title": "Memory Usage",
     "type": "timeseries"
-})
+}
+
+# Add Memory alert if enabled
+if alerts_config["memory_alerts"]["enabled"]:
+    memory_expr = f"100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))"
+    alert_rules.append(create_unified_alert_rule(
+        uid="memory-usage-alert",
+        title="Memory Usage Alert",
+        expr=memory_expr,
+        summary=alerts_config["memory_alerts"]["message_template"].replace("{{value}}", str(alerts_config["memory_alerts"]["threshold_percent"])).replace("{{threshold}}", str(alerts_config["memory_alerts"]["threshold_percent"])),
+        description=f"Memory usage has exceeded {alerts_config['memory_alerts']['threshold_percent']}% for {alerts_config['memory_alerts']['sustained_duration']}",
+        for_duration=alerts_config["memory_alerts"]["sustained_duration"],
+        threshold=alerts_config["memory_alerts"]["threshold_percent"]
+    ))
+
+panels.append(memory_panel)
 panel_id += 1
 y_pos += 8
 
@@ -180,7 +312,7 @@ for drive in MONITORED_DRIVES:
     mountpoint = drive['mountpoint']
     label = drive['label']
 
-    panels.append({
+    storage_panel = {
         "datasource": {"type": "prometheus", "uid": DATASOURCE_UID},
         "fieldConfig": {
             "defaults": {
@@ -194,7 +326,7 @@ for drive in MONITORED_DRIVES:
                         {"color": "green", "value": None},
                         {"color": "yellow", "value": 70},
                         {"color": "orange", "value": 85},
-                        {"color": "red", "value": 95}
+                        {"color": "red", "value": alerts_config["storage_alerts"]["threshold_percent"]}
                     ]
                 },
                 "unit": "percent"
@@ -226,7 +358,24 @@ for drive in MONITORED_DRIVES:
         ],
         "title": label,
         "type": "gauge"
-    })
+    }
+
+    # Add storage alert if enabled
+    if alerts_config["storage_alerts"]["enabled"]:
+        storage_expr = f"100 * (1 - (node_filesystem_avail_bytes{{mountpoint=\"{mountpoint}\",fstype!=\"tmpfs\"}} / node_filesystem_size_bytes{{mountpoint=\"{mountpoint}\",fstype!=\"tmpfs\"}}))"
+        # Get device name for the alert
+        device_label = drive.get('description', label)
+        alert_rules.append(create_unified_alert_rule(
+            uid=f"storage-alert-{label.lower().replace(' ', '-').replace('/', '')}",
+            title=f"Storage Alert - {label}",
+            expr=storage_expr,
+            summary=alerts_config["storage_alerts"]["message_template"].replace("{{mountpoint}}", mountpoint).replace("{{device}}", device_label).replace("{{value}}", str(alerts_config["storage_alerts"]["threshold_percent"])),
+            description=f"Storage on {label} ({mountpoint}) has exceeded {alerts_config['storage_alerts']['threshold_percent']}%",
+            for_duration=alerts_config["storage_alerts"]["evaluation_interval"],
+            threshold=alerts_config["storage_alerts"]["threshold_percent"]
+        ))
+
+    panels.append(storage_panel)
     panel_id += 1
     x_pos += gauge_width
 
@@ -543,8 +692,43 @@ dashboard["panels"] = panels
 with open('config/dashboard.json', 'w') as f:
     json.dump(dashboard, f, indent=2)
 
+# Write the alert rules with notification policy
+alert_rules_config = {
+    "apiVersion": 1,
+    "groups": [
+        {
+            "orgId": 1,
+            "name": "server_monitoring_alerts",
+            "folder": "Server Monitoring",
+            "interval": "1m",
+            "rules": alert_rules
+        }
+    ]
+}
+
+# Create notification policy that routes all alerts to slack-alerts
+notification_policies = {
+    "apiVersion": 1,
+    "policies": [
+        {
+            "receiver": "slack-alerts",
+            "group_by": ["alertname"],
+            "group_wait": "30s",
+            "group_interval": "5m",
+            "repeat_interval": alerts_config.get("storage_alerts", {}).get("notification_interval", "5m")
+        }
+    ]
+}
+
+with open('config/alert_rules.yml', 'w') as f:
+    yaml.dump(alert_rules_config, f, default_flow_style=False, sort_keys=False)
+
+with open('config/notification_policies.yml', 'w') as f:
+    yaml.dump(notification_policies, f, default_flow_style=False, sort_keys=False)
+
 print("Dashboard created successfully!")
 print(f"Total panels: {len(panels)}")
+print(f"Total alert rules: {len(alert_rules)}")
 print(f"Monitored drives: {num_drives}")
 for drive in MONITORED_DRIVES:
     print(f"  - {drive['label']}: {drive['mountpoint']}")

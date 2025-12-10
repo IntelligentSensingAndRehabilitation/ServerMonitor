@@ -1,0 +1,31 @@
+{
+  "comment": "Alert configuration for server monitoring",
+  "slack": {
+    "webhook_url": "REPLACE_WITH_YOUR_SLACK_WEBHOOK_URL",
+    "channel": "#alerts",
+    "mention_users": []
+  },
+  "storage_alerts": {
+    "enabled": true,
+    "threshold_percent": 70,
+    "evaluation_interval": "5s",
+    "notification_interval": "5s",
+    "message_template": "Storage alert: {{mountpoint}} on {{device}} is {{value}}% full"
+  },
+  "cpu_alerts": {
+    "enabled": true,
+    "threshold_percent": 80,
+    "sustained_duration": "10m",
+    "evaluation_interval": "1m",
+    "notification_interval": "1h",
+    "message_template": "CPU usage has been above {{threshold}}% for {{duration}}"
+  },
+  "memory_alerts": {
+    "enabled": true,
+    "threshold_percent": 90,
+    "sustained_duration": "5m",
+    "evaluation_interval": "1m",
+    "notification_interval": "1h",
+    "message_template": "Memory usage is at {{value}}% (threshold: {{threshold}}%)"
+  }
+}

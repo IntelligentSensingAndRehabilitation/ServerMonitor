@@ -1,0 +1,373 @@
+apiVersion: 1
+groups:
+- orgId: 1
+  name: server_monitoring_alerts
+  folder: Server Monitoring
+  interval: 1m
+  rules:
+  - uid: cpu-usage-alert
+    title: CPU Usage Alert
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m]))
+          * 100)
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 80
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 10m
+    annotations:
+      summary: CPU usage has been above 80% for 10m
+      description: CPU usage has exceeded 80% for 10m
+    labels: {}
+    isPaused: false
+  - uid: memory-usage-alert
+    title: Memory Usage Alert
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 90
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 5m
+    annotations:
+      summary: 'Memory usage is at 90% (threshold: 90%)'
+      description: Memory usage has exceeded 90% for 5m
+    labels: {}
+    isPaused: false
+  - uid: storage-alert-root-
+    title: Storage Alert - Root /
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint="/rootfs",fstype!="tmpfs"}))
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 70
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 5s
+    annotations:
+      summary: 'Storage alert: /rootfs on Root filesystem (nvme3n1p2) is 70% full'
+      description: Storage on Root / (/rootfs) has exceeded 70%
+    labels: {}
+    isPaused: false
+  - uid: storage-alert-home
+    title: Storage Alert - Home
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs/home",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint="/rootfs/home",fstype!="tmpfs"}))
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 70
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 5s
+    annotations:
+      summary: 'Storage alert: /rootfs/home on Home partition (nvme3n1p4) is 70% full'
+      description: Storage on Home (/rootfs/home) has exceeded 70%
+    labels: {}
+    isPaused: false
+  - uid: storage-alert-data0
+    title: Storage Alert - Data0
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs/mnt/data0",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint="/rootfs/mnt/data0",fstype!="tmpfs"}))
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 70
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 5s
+    annotations:
+      summary: 'Storage alert: /rootfs/mnt/data0 on RAID1 array (md0) is 70% full'
+      description: Storage on Data0 (/rootfs/mnt/data0) has exceeded 70%
+    labels: {}
+    isPaused: false
+  - uid: storage-alert-data1
+    title: Storage Alert - Data1
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs/mnt/data1",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint="/rootfs/mnt/data1",fstype!="tmpfs"}))
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 70
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 5s
+    annotations:
+      summary: 'Storage alert: /rootfs/mnt/data1 on Single drive (nvme2n1) is 70%
+        full'
+      description: Storage on Data1 (/rootfs/mnt/data1) has exceeded 70%
+    labels: {}
+    isPaused: false

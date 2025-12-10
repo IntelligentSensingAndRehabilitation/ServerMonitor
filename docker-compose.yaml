@@ -52,10 +52,15 @@ services:
     ports:
       - ${GRAFANA_PORT}:3000 # maps host port to grafana's internal port 3000
     env_file: .env # loads .env variables
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL} # Pass Slack webhook URL to Grafana
     volumes:
       - ./config/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./config/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
       - ./config/dashboard.json:/var/lib/grafana/dashboards/dashboard.json
+      - ./config/alerting.yml:/etc/grafana/provisioning/alerting/alerting.yml
+      - ./config/alert_rules.yml:/etc/grafana/provisioning/alerting/alert_rules.yml
+      - ./config/notification_policies.yml:/etc/grafana/provisioning/alerting/notification_policies.yml
       # - grafana_data:/var/lib/grafana # Optional mount for persistent grafana data storage
     networks:
       - monitoring # Connects node-exporter to monitoring network

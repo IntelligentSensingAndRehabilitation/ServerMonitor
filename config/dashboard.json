@@ -177,7 +177,7 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 90
               }
             ]
           },
@@ -251,7 +251,7 @@
               },
               {
                 "color": "red",
-                "value": 95
+                "value": 70
               }
             ]
           },
@@ -325,7 +325,7 @@
               },
               {
                 "color": "red",
-                "value": 95
+                "value": 70
               }
             ]
           },
@@ -399,7 +399,7 @@
               },
               {
                 "color": "red",
-                "value": 95
+                "value": 70
               }
             ]
           },
@@ -440,7 +440,7 @@
           "refId": "A"
         }
       ],
-      "title": "Data0 (RAID1)",
+      "title": "Data0",
       "type": "gauge"
     },
     {
@@ -473,7 +473,7 @@
               },
               {
                 "color": "red",
-                "value": 95
+                "value": 70
               }
             ]
           },

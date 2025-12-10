@@ -13,7 +13,7 @@
     },
     {
       "mountpoint": "/rootfs/mnt/data0",
-      "label": "Data0 (RAID1)",
+      "label": "Data0",
       "description": "RAID1 array (md0)"
     },
     {
