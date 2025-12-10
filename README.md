@@ -1,6 +1,6 @@
 # Server Monitor
 
-A simplified server monitoring dashboard using Prometheus, Node Exporter, and Grafana. Monitors CPU, memory, network, disk I/O, and storage usage for specific drives.
+A dynamic server monitoring dashboard using Prometheus, Node Exporter, and Grafana. Monitors CPU, memory, network, disk I/O, and storage usage with automatic drive detection and configurable alerts.
 
 ## Components
 
@@ -41,40 +41,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
 
 Replace the `SLACK_WEBHOOK_URL` with your actual Slack webhook URL for alert notifications.
 
-### 3. Configure Monitored Drives
-
-Edit `config/monitored_drives.json` to specify which drives to monitor. Update the mountpoints based on your server's configuration.
-
-**Important**: Mountpoints will be prefixed with `/rootfs` when accessed by Node Exporter running in Docker.
-
-Example configuration:
-
-```json
-{
-  "comment": "Configuration for monitored storage drives",
-  "drives": [
-    {
-      "mountpoint": "/rootfs",
-      "label": "Root /",
-      "description": "Root filesystem"
-    },
-    {
-      "mountpoint": "/rootfs/home",
-      "label": "Home",
-      "description": "Home partition"
-    },
-    {
-      "mountpoint": "/rootfs/mnt/data0",
-      "label": "Data0 (RAID1)",
-      "description": "RAID1 array"
-    }
-  ]
-}
-```
-
-To find your mountpoints, run `df -h` on the host and prefix each path with `/rootfs`.
-
-### 4. Configure Alerts
+### 3. Configure Alerts
 
 Edit `config/alerts_config.json` to customize alert thresholds and notification intervals:
 
@@ -112,24 +79,35 @@ Configuration options:
 - **enabled**: Enable or disable alerts for this metric
 - **threshold_percent**: Percentage threshold that triggers the alert
 - **sustained_duration**: How long the threshold must be exceeded before alerting (CPU/Memory only)
-- **evaluation_interval**: How often to check the metric
-- **notification_interval**: How often to send notifications when alert is active
+- **evaluation_interval**: How often Grafana checks if the condition is true
+- **notification_interval**: ⚠️ **IMPORTANT** - Controls how frequently you receive Slack notifications while an alert is firing
 
-### 5. Generate Dashboard
+**Understanding notification_interval:**
+This is the PRIMARY setting that controls alert frequency. When an alert is active, Grafana will send a Slack notification at this interval.
 
-The dashboard generation script reads both the monitored drives and alerts configuration to create the dashboard with alert rules:
+- For testing: `"5s"` = notification every 5 seconds
+- For production storage alerts: `"24h"` = one notification per day (recommended)
+- For production CPU/memory alerts: `"1h"` = one notification per hour
+
+**Note:** There's a fixed 10-second initial delay (`group_wait`) before the first notification is sent.
+
+### 4. Generate Alerts
+
+Generate alert rules from the configuration:
 
 ```bash
-python3 simplify_dashboard.py
+python3 generate_alerts.py
 ```
 
-### 6. Start Services
+**Note**: Both dashboard and alerts are now fully dynamic! Alerts automatically monitor all physical drives.
+
+### 5. Start Services
 
 ```bash
 docker compose up -d
 ```
 
-### 7. Access Grafana
+### 6. Access Grafana
 
 Open your browser and navigate to `http://<server-ip>:<port>` where `<port>` is the value you set for `GRAFANA_PORT` in your `.env` file (default: 3000).
 
@@ -137,33 +115,43 @@ Default credentials:
 - Username: `admin`
 - Password: `admin`
 
-The dashboard "Server Monitor - Simplified" should be automatically loaded.
+The dashboard "Server Monitor - Dynamic" should be automatically loaded and will show all your filesystems!
 
 Note: If you changed `GRAFANA_PORT` to something other than 3000 (e.g., 4000), you'll access Grafana at that port on the host, but the container internally still runs on port 3000.
 
-## Dashboard Layout
+### 7. Select Which Drives to Monitor (Optional)
 
+In the Grafana dashboard, use the "mountpoint" dropdown at the top to select which filesystems you want to see in the storage gauges. By default, all non-tmpfs filesystems are shown.
+
+## Dashboard Features
+
+### Dynamic Drive Detection
+The dashboard automatically detects and displays **all available filesystems** from Prometheus. No need to regenerate the dashboard when adding or removing drives!
+
+### Interactive Controls
+Use the **mountpoint dropdown** at the top of the dashboard to select which filesystems to monitor. Changes apply instantly without reloading.
+
+### Layout
 - **Row 1**: CPU Usage and Memory Usage (side by side)
-- **Row 2**: Storage gauges showing usage percentage for each monitored drive
+- **Row 2**: Storage gauges - one per selected filesystem, showing usage percentage
 - **Row 3**: Network Traffic and Disk I/O (side by side)
-- **Row 4**: Storage Details table with size, usage, and availability
+- **Row 4**: Storage Details table with size, usage, and availability for all selected filesystems
 
 ## Updating Configuration
 
-### Modifying Monitored Drives
+### Adding/Removing Monitored Drives
 
-To add or remove monitored drives:
+**Everything is automatic!** Both dashboard and alerts discover drives dynamically.
 
-1. Edit `config/monitored_drives.json`
-2. Run `python3 simplify_dashboard.py`
-3. Restart Grafana: `docker compose restart grafana`
+- **Dashboard**: Use the dropdown to select which filesystems to display
+- **Alerts**: Automatically monitor all physical drives (no configuration needed)
 
 ### Modifying Alert Settings
 
 To change alert thresholds or notification intervals:
 
 1. Edit `config/alerts_config.json`
-2. Run `python3 simplify_dashboard.py`
+2. Run `python3 generate_alerts.py`
 3. Restart Grafana: `docker compose restart grafana`
 
 ## Monitoring Metrics
@@ -192,11 +180,17 @@ All alerts send notifications to the configured Slack webhook URL. Alert thresho
 - Verify Prometheus is scraping metrics: `http://<server-ip>:9090/targets`
 - Verify the datasource is configured correctly in Grafana's settings
 
-### Drives not appearing
+### Drives not appearing in dropdown
 
-- Verify mountpoints in `config/monitored_drives.json` are correct
-- Remember to prefix host mountpoints with `/rootfs`
+- The dashboard shows all filesystems that Prometheus discovers automatically
 - Check available metrics: `docker exec prometheus-c wget -qO- "http://localhost:9090/api/v1/query?query=node_filesystem_size_bytes"`
+- Verify Node Exporter is running: `docker ps | grep node-exporter`
+
+### Alerts not working
+
+- Check Grafana alerting is enabled: Grafana → Alerting → Alert rules
+- Verify Slack webhook URL in `.env` file
+- Check Grafana logs: `docker compose logs grafana`
 
 ### Port conflicts
 
@@ -208,15 +202,25 @@ All alerts send notifications to the configured Slack webhook URL. Alert thresho
 ```
 server_monitor/
 ├── config/
-│   ├── alerts_config.json      # Alert configuration
-│   ├── alerting.yml            # Grafana alerting provisioning config
-│   ├── dashboard.json          # Generated Grafana dashboard
-│   ├── dashboard.yml           # Dashboard provisioning config
-│   ├── datasources.yml         # Prometheus datasource config
-│   ├── monitored_drives.json   # Drive monitoring configuration
-│   └── prometheus.yml          # Prometheus scrape config
-├── docker-compose.yaml         # Docker services definition
-├── simplify_dashboard.py       # Dashboard generation script
-├── .env                        # Environment variables
-└── README.md                   # This file
+│   ├── alerts_config.json           # Alert thresholds and settings
+│   ├── alerting.yml                 # Grafana alerting provisioning config
+│   ├── alert_rules.yml              # Generated alert rules (auto-generated)
+│   ├── notification_policies.yml    # Notification routing (auto-generated)
+│   ├── dashboard_dynamic.json       # Dynamic Grafana dashboard
+│   ├── dashboard.yml                # Dashboard provisioning config
+│   ├── datasources.yml              # Prometheus datasource config
+│   └── prometheus.yml               # Prometheus scrape config
+├── docker-compose.yaml              # Docker services definition
+├── generate_alerts.py               # Alert generation script
+├── .env                             # Environment variables
+└── README.md                        # This file
 ```
+
+## Benefits
+
+- ✅ **Zero configuration**: Dashboard and alerts automatically discover all drives
+- ✅ **No manual drive lists**: Everything is dynamic from Prometheus
+- ✅ **Minimal files**: Only essential configuration needed
+- ✅ **Easy maintenance**: Change thresholds in one place
+- ✅ **Network drive filtering**: Automatically excludes NFS/SMB mounts
+- ✅ **Device names in alerts**: Slack shows "nvme3n1p4 is 87% full"

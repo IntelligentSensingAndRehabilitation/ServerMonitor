@@ -57,7 +57,7 @@ services:
     volumes:
       - ./config/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./config/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
-      - ./config/dashboard.json:/var/lib/grafana/dashboards/dashboard.json
+      - ./config/dashboard_dynamic.json:/var/lib/grafana/dashboards/dashboard.json
       - ./config/alerting.yml:/etc/grafana/provisioning/alerting/alerting.yml
       - ./config/alert_rules.yml:/etc/grafana/provisioning/alerting/alert_rules.yml
       - ./config/notification_policies.yml:/etc/grafana/provisioning/alerting/notification_policies.yml

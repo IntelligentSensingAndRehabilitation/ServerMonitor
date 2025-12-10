@@ -126,8 +126,8 @@ groups:
       description: Memory usage has exceeded 90% for 5m
     labels: {}
     isPaused: false
-  - uid: storage-alert-root-
-    title: Storage Alert - Root /
+  - uid: storage-alert-physical-drives
+    title: Storage Alert - Physical Drives
     condition: C
     data:
     - refId: A
@@ -136,8 +136,8 @@ groups:
         to: 0
       datasourceUid: prometheus
       model:
-        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs",fstype!="tmpfs"}
-          / node_filesystem_size_bytes{mountpoint="/rootfs",fstype!="tmpfs"}))
+        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint=~"^/rootfs$|/rootfs/home$|/rootfs/mnt/data[0-9]+$",fstype!="tmpfs"}
+          / node_filesystem_size_bytes{mountpoint=~"^/rootfs$|/rootfs/home$|/rootfs/mnt/data[0-9]+$",fstype!="tmpfs"}))
         interval: ''
         refId: A
         datasource:
@@ -183,191 +183,7 @@ groups:
     execErrState: Alerting
     for: 5s
     annotations:
-      summary: 'Storage alert: /rootfs on Root filesystem (nvme3n1p2) is 70% full'
-      description: Storage on Root / (/rootfs) has exceeded 70%
-    labels: {}
-    isPaused: false
-  - uid: storage-alert-home
-    title: Storage Alert - Home
-    condition: C
-    data:
-    - refId: A
-      relativeTimeRange:
-        from: 600
-        to: 0
-      datasourceUid: prometheus
-      model:
-        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs/home",fstype!="tmpfs"}
-          / node_filesystem_size_bytes{mountpoint="/rootfs/home",fstype!="tmpfs"}))
-        interval: ''
-        refId: A
-        datasource:
-          type: prometheus
-          uid: prometheus
-    - refId: B
-      relativeTimeRange:
-        from: 0
-        to: 0
-      datasourceUid: '-100'
-      model:
-        datasource:
-          type: __expr__
-          uid: '-100'
-        expression: A
-        reducer: last
-        refId: B
-        type: reduce
-    - refId: C
-      relativeTimeRange:
-        from: 0
-        to: 0
-      datasourceUid: '-100'
-      model:
-        datasource:
-          type: __expr__
-          uid: '-100'
-        conditions:
-        - evaluator:
-            params:
-            - 70
-            type: gt
-          operator:
-            type: and
-          query:
-            params:
-            - B
-          type: query
-        expression: B
-        refId: C
-        type: threshold
-    noDataState: NoData
-    execErrState: Alerting
-    for: 5s
-    annotations:
-      summary: 'Storage alert: /rootfs/home on Home partition (nvme3n1p4) is 70% full'
-      description: Storage on Home (/rootfs/home) has exceeded 70%
-    labels: {}
-    isPaused: false
-  - uid: storage-alert-data0
-    title: Storage Alert - Data0
-    condition: C
-    data:
-    - refId: A
-      relativeTimeRange:
-        from: 600
-        to: 0
-      datasourceUid: prometheus
-      model:
-        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs/mnt/data0",fstype!="tmpfs"}
-          / node_filesystem_size_bytes{mountpoint="/rootfs/mnt/data0",fstype!="tmpfs"}))
-        interval: ''
-        refId: A
-        datasource:
-          type: prometheus
-          uid: prometheus
-    - refId: B
-      relativeTimeRange:
-        from: 0
-        to: 0
-      datasourceUid: '-100'
-      model:
-        datasource:
-          type: __expr__
-          uid: '-100'
-        expression: A
-        reducer: last
-        refId: B
-        type: reduce
-    - refId: C
-      relativeTimeRange:
-        from: 0
-        to: 0
-      datasourceUid: '-100'
-      model:
-        datasource:
-          type: __expr__
-          uid: '-100'
-        conditions:
-        - evaluator:
-            params:
-            - 70
-            type: gt
-          operator:
-            type: and
-          query:
-            params:
-            - B
-          type: query
-        expression: B
-        refId: C
-        type: threshold
-    noDataState: NoData
-    execErrState: Alerting
-    for: 5s
-    annotations:
-      summary: 'Storage alert: /rootfs/mnt/data0 on RAID1 array (md0) is 70% full'
-      description: Storage on Data0 (/rootfs/mnt/data0) has exceeded 70%
-    labels: {}
-    isPaused: false
-  - uid: storage-alert-data1
-    title: Storage Alert - Data1
-    condition: C
-    data:
-    - refId: A
-      relativeTimeRange:
-        from: 600
-        to: 0
-      datasourceUid: prometheus
-      model:
-        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/rootfs/mnt/data1",fstype!="tmpfs"}
-          / node_filesystem_size_bytes{mountpoint="/rootfs/mnt/data1",fstype!="tmpfs"}))
-        interval: ''
-        refId: A
-        datasource:
-          type: prometheus
-          uid: prometheus
-    - refId: B
-      relativeTimeRange:
-        from: 0
-        to: 0
-      datasourceUid: '-100'
-      model:
-        datasource:
-          type: __expr__
-          uid: '-100'
-        expression: A
-        reducer: last
-        refId: B
-        type: reduce
-    - refId: C
-      relativeTimeRange:
-        from: 0
-        to: 0
-      datasourceUid: '-100'
-      model:
-        datasource:
-          type: __expr__
-          uid: '-100'
-        conditions:
-        - evaluator:
-            params:
-            - 70
-            type: gt
-          operator:
-            type: and
-          query:
-            params:
-            - B
-          type: query
-        expression: B
-        refId: C
-        type: threshold
-    noDataState: NoData
-    execErrState: Alerting
-    for: 5s
-    annotations:
-      summary: 'Storage alert: /rootfs/mnt/data1 on Single drive (nvme2n1) is 70%
-        full'
-      description: Storage on Data1 (/rootfs/mnt/data1) has exceeded 70%
+      summary: 'Storage alert: drive is above threshold'
+      description: Physical drive storage has exceeded 70%
     labels: {}
     isPaused: false

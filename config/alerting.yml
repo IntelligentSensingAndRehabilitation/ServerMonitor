@@ -10,7 +10,6 @@ contactPoints:
           url: ${SLACK_WEBHOOK_URL}
           text: |
             {{ range .Alerts }}
-              {{ .Annotations.summary }}
-              {{ .Annotations.description }}
+              {{ if .Labels.device }}⚠️ {{ .Labels.device }} ({{ .Labels.mountpoint }}) storage alert{{ else }}{{ .Annotations.summary }}{{ end }}
             {{ end }}
         disableResolveMessage: false
