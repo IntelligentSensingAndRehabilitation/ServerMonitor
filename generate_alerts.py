@@ -3,6 +3,17 @@
 
 import json
 import yaml
+import re
+
+def parse_duration_to_seconds(duration_str):
+    """Convert duration string like '10s', '5m', '1h' to seconds"""
+    match = re.match(r'(\d+)([smhd])', duration_str)
+    if not match:
+        raise ValueError(f"Invalid duration format: {duration_str}")
+
+    value, unit = int(match.group(1)), match.group(2)
+    multipliers = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
+    return value * multipliers[unit]
 
 # Load alerts configuration
 with open('config/alerts_config.json', 'r') as f:
@@ -106,11 +117,11 @@ if alerts_config["storage_alerts"]["enabled"]:
         expr=storage_expr,
         summary="Storage alert: drive is above threshold",
         description=f"Physical drive storage has exceeded {cfg['threshold_percent']}%",
-        for_duration=cfg["evaluation_interval"],
+        for_duration=cfg["sustained_duration"],
         threshold=cfg["threshold_percent"]
     ))
 
-# Write alert rules
+# Write alert rules with global check interval
 with open('config/alert_rules.yml', 'w') as f:
     yaml.dump({
         "apiVersion": 1,
@@ -118,22 +129,45 @@ with open('config/alert_rules.yml', 'w') as f:
             "orgId": 1,
             "name": "server_monitoring_alerts",
             "folder": "Server Monitoring",
-            "interval": "1m",
+            "interval": alerts_config["check_interval"],
             "rules": alert_rules
         }]
     }, f, default_flow_style=False, sort_keys=False)
 
-# Write notification policies
-notif_interval = alerts_config["storage_alerts"]["notification_interval"]
+# Write notification policies - use shortest notification_interval (properly parsed)
+enabled_alerts = [v for k, v in alerts_config.items() if isinstance(v, dict) and v.get("enabled")]
+min_notif_interval = min(
+    (alert["notification_interval"] for alert in enabled_alerts),
+    key=parse_duration_to_seconds
+)
+
+# Actual notification timing = group_interval + repeat_interval
+# So to get desired notification_interval, we need: repeat_interval = notification_interval - group_interval
+check_interval_seconds = parse_duration_to_seconds(alerts_config["check_interval"])
+min_notif_seconds = parse_duration_to_seconds(min_notif_interval)
+repeat_seconds = max(min_notif_seconds - check_interval_seconds, check_interval_seconds)
+
+# Convert back to duration string
+def seconds_to_duration(seconds):
+    """Convert seconds to duration string"""
+    if seconds >= 3600 and seconds % 3600 == 0:
+        return f"{seconds // 3600}h"
+    elif seconds >= 60 and seconds % 60 == 0:
+        return f"{seconds // 60}m"
+    else:
+        return f"{seconds}s"
+
+repeat_interval = seconds_to_duration(repeat_seconds)
+
 with open('config/notification_policies.yml', 'w') as f:
     yaml.dump({
         "apiVersion": 1,
         "policies": [{
             "receiver": "slack-alerts",
             "group_by": ["alertname"],
-            "group_wait": "10s",
-            "group_interval": notif_interval,
-            "repeat_interval": notif_interval
+            "group_wait": "0s",
+            "group_interval": alerts_config["check_interval"],
+            "repeat_interval": repeat_interval
         }]
     }, f, default_flow_style=False, sort_keys=False)
 

@@ -83,13 +83,13 @@ Configuration options:
 - **notification_interval**: ⚠️ **IMPORTANT** - Controls how frequently you receive Slack notifications while an alert is firing
 
 **Understanding notification_interval:**
-This is the PRIMARY setting that controls alert frequency. When an alert is active, Grafana will send a Slack notification at this interval.
+This is the PRIMARY setting that controls alert frequency. When an alert is active, Grafana will send a Slack notification at this exact interval.
 
-- For testing: `"5s"` = notification every 5 seconds
+- For testing: `"20s"` = notification every 20 seconds
 - For production storage alerts: `"24h"` = one notification per day (recommended)
 - For production CPU/memory alerts: `"1h"` = one notification per hour
 
-**Note:** There's a fixed 10-second initial delay (`group_wait`) before the first notification is sent.
+**Important:** The `notification_interval` must be a multiple of 10 seconds (Grafana's scheduler runs every 10s). Valid values: `10s`, `20s`, `30s`, `1m`, `5m`, `1h`, `24h`.
 
 ### 4. Generate Alerts
 

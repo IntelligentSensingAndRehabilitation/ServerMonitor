@@ -3,7 +3,7 @@ groups:
 - orgId: 1
   name: server_monitoring_alerts
   folder: Server Monitoring
-  interval: 1m
+  interval: 10s
   rules:
   - uid: cpu-usage-alert
     title: CPU Usage Alert
@@ -181,7 +181,7 @@ groups:
         type: threshold
     noDataState: NoData
     execErrState: Alerting
-    for: 5s
+    for: 10s
     annotations:
       summary: 'Storage alert: drive is above threshold'
       description: Physical drive storage has exceeded 70%
