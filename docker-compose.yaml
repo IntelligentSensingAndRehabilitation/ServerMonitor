@@ -54,6 +54,10 @@ services:
     env_file: .env # loads .env variables
     environment:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL} # Pass Slack webhook URL to Grafana
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL} # Set Grafana's external URL for correct links
+      - GF_AUTH_ANONYMOUS_ENABLED=true # Enable anonymous access
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer # Anonymous users can only view dashboards
+      - GF_SECURITY_ALLOW_EMBEDDING=true # Allow embedding in iframes if needed
     volumes:
       - ./config/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./config/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml

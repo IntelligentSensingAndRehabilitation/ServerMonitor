@@ -168,7 +168,7 @@ groups:
         conditions:
         - evaluator:
             params:
-            - 70
+            - 90
             type: gt
           operator:
             type: and
@@ -184,6 +184,6 @@ groups:
     for: 10s
     annotations:
       summary: 'Storage alert: drive is above threshold'
-      description: Physical drive storage has exceeded 70%
+      description: Physical drive storage has exceeded 90%
     labels: {}
     isPaused: false
