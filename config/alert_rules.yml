@@ -19,7 +19,7 @@ groups:
         to: 0
       datasourceUid: prometheus
       model:
-        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m]))
+        expr: 100 - (avg by(instance, hostname) (irate(node_cpu_seconds_total{mode="idle"}[5m]))
           * 100)
         interval: ''
         refId: A
@@ -51,7 +51,7 @@ groups:
         conditions:
         - evaluator:
             params:
-            - 80
+            - 95
             type: gt
           operator:
             type: and
@@ -66,9 +66,10 @@ groups:
     execErrState: Alerting
     for: 10m
     annotations:
-      summary: CPU usage has been above 80% for 10m
-      description: CPU usage has exceeded 80% for 10m
-    labels: {}
+      summary: CPU usage has been above 95% for 10m
+      description: CPU usage has exceeded 95% for 10m
+    labels:
+      alert_type: system
     isPaused: false
   - uid: memory-usage-alert
     title: Memory Usage Alert
@@ -111,7 +112,7 @@ groups:
         conditions:
         - evaluator:
             params:
-            - 90
+            - 95
             type: gt
           operator:
             type: and
@@ -124,11 +125,12 @@ groups:
         type: threshold
     noDataState: NoData
     execErrState: Alerting
-    for: 5m
+    for: 10m
     annotations:
-      summary: 'Memory usage is at 90% (threshold: 90%)'
-      description: Memory usage has exceeded 90% for 5m
-    labels: {}
+      summary: Memory usage has been above 95% for 10m
+      description: Memory usage has exceeded 95% for 10m
+    labels:
+      alert_type: system
     isPaused: false
   - uid: storage-alert-physical-drives
     title: Storage Alert
@@ -189,5 +191,6 @@ groups:
     annotations:
       summary: Drive is more than 90% full
       description: ''
-    labels: {}
+    labels:
+      alert_type: storage
     isPaused: false

@@ -22,7 +22,7 @@ with open('config/alerts_config.json', 'r') as f:
 # Store alert rules
 alert_rules = []
 
-def create_alert(uid, title, expr, summary, description, for_duration, threshold):
+def create_alert(uid, title, expr, summary, description, for_duration, threshold, alert_type="system"):
     """Create a Grafana unified alert rule"""
     return {
         "uid": uid,
@@ -74,7 +74,7 @@ def create_alert(uid, title, expr, summary, description, for_duration, threshold
         "execErrState": "Alerting",
         "for": for_duration,
         "annotations": {"summary": summary, "description": description},
-        "labels": {},
+        "labels": {"alert_type": alert_type},
         "isPaused": False
     }
 
@@ -84,7 +84,7 @@ if alerts_config["cpu_alerts"]["enabled"]:
     alert_rules.append(create_alert(
         uid="cpu-usage-alert",
         title="CPU Usage Alert",
-        expr='100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
+        expr='100 - (avg by(instance, hostname) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)',
         summary=f"CPU usage has been above {cfg['threshold_percent']}% for {cfg['sustained_duration']}",
         description=f"CPU usage has exceeded {cfg['threshold_percent']}% for {cfg['sustained_duration']}",
         for_duration=cfg["sustained_duration"],
@@ -98,7 +98,7 @@ if alerts_config["memory_alerts"]["enabled"]:
         uid="memory-usage-alert",
         title="Memory Usage Alert",
         expr='100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))',
-        summary=f"Memory usage is at {cfg['threshold_percent']}% (threshold: {cfg['threshold_percent']}%)",
+        summary=f"Memory usage has been above {cfg['threshold_percent']}% for {cfg['sustained_duration']}",
         description=f"Memory usage has exceeded {cfg['threshold_percent']}% for {cfg['sustained_duration']}",
         for_duration=cfg["sustained_duration"],
         threshold=cfg["threshold_percent"]
@@ -118,7 +118,8 @@ if alerts_config["storage_alerts"]["enabled"]:
         summary=f"Drive is more than {cfg['threshold_percent']}% full",
         description="",
         for_duration=cfg["sustained_duration"],
-        threshold=cfg["threshold_percent"]
+        threshold=cfg["threshold_percent"],
+        alert_type="storage"
     ))
 
 # Write alert rules with global check interval
@@ -169,11 +170,19 @@ with open('config/notification_policies.yml', 'w') as f:
     yaml.dump({
         "apiVersion": 1,
         "policies": [{
-            "receiver": "slack-alerts",
+            "receiver": "slack-alerts-system",
             "group_by": ["alertname"],
             "group_wait": "0s",
             "group_interval": alerts_config["check_interval"],
-            "repeat_interval": repeat_interval
+            "repeat_interval": repeat_interval,
+            "routes": [{
+                "receiver": "slack-alerts-storage",
+                "matchers": ["alert_type=storage"],
+                "group_by": ["alertname"],
+                "group_wait": "0s",
+                "group_interval": alerts_config["check_interval"],
+                "repeat_interval": repeat_interval
+            }]
         }]
     }, f, default_flow_style=False, sort_keys=False)
 

@@ -2,12 +2,22 @@ apiVersion: 1
 
 contactPoints:
   - orgId: 1
-    name: slack-alerts
+    name: slack-alerts-storage
     receivers:
-      - uid: slack-alerts
+      - uid: slack-alerts-storage
         type: slack
         settings:
           url: ${SLACK_WEBHOOK_URL}
           title: "{{ range .Alerts }}Storage Alert - {{ .Labels.hostname }} ({{ .Labels.device }}){{ end }}"
           text: "{{ range .Alerts }}⚠️ {{ .Labels.mountpoint }} is more than 90% full{{ end }}"
+        disableResolveMessage: false
+  - orgId: 1
+    name: slack-alerts-system
+    receivers:
+      - uid: slack-alerts-system
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK_URL}
+          title: "{{ range .Alerts }}{{ .Labels.alertname }} - {{ .Labels.hostname }}{{ end }}"
+          text: "{{ range .Alerts }}⚠️ {{ .Annotations.summary }}{{ end }}"
         disableResolveMessage: false

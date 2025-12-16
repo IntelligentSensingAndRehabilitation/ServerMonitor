@@ -4,18 +4,18 @@
     "enabled": true,
     "threshold_percent": 90,
     "sustained_duration": "10s",
-    "notification_interval": "5m"
+    "notification_interval": "30m"
   },
   "cpu_alerts": {
     "enabled": true,
-    "threshold_percent": 80,
+    "threshold_percent": 95,
     "sustained_duration": "10m",
     "notification_interval": "1h"
   },
   "memory_alerts": {
     "enabled": true,
-    "threshold_percent": 90,
-    "sustained_duration": "5m",
+    "threshold_percent": 95,
+    "sustained_duration": "10m",
     "notification_interval": "1h"
   }
 }
