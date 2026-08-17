@@ -15,17 +15,35 @@ services:
 
   # Service definition for Prometheus (collects and stores metrics from Node Exporter)
   prometheus:
-    image: prom/prometheus:latest # Specifies the Prometheus Docker image
+    image: prom/prometheus:v3.8.0 # Specifies the Prometheus Docker image
     container_name: ${PROMETHEUS_CONTAINER} # Container name from .env file
     restart: always # Ensures the container always restarts if it crashes
     env_file: .env # loads .env variables
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=30d'
+      # 90d, not 30d: the storage projection compares a 1-day average against the
+      # same average 28 days earlier, so 30d retention left no headroom and the
+      # projection went blind for 4 weeks after any TSDB loss.
+      - '--storage.tsdb.retention.time=90d'
+      # Hard ceiling so 90d of a growing target set can never fill the volume.
+      - '--storage.tsdb.retention.size=20GB'
+      # Allows `curl -XPOST /-/reload` to pick up recording rule changes without
+      # restarting Prometheus (which would drop the in-memory head block).
+      - '--web.enable-lifecycle'
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml # Mount local prometheus config
+      # The whole directory, not individual files: a single-file bind mount pins the
+      # source inode, so rewriting prometheus.yml or recording_rules.yml leaves a
+      # running container reading the old file and `/-/reload` silently no-ops.
+      # A directory mount resolves by path, so edits are picked up on reload.
+      - ./config:/etc/prometheus:ro
       - prometheus_data:/prometheus
+    extra_hosts:
+      # Lets Prometheus reach exporters bound to THIS host's ports. Needed because
+      # node-exporter uses host networking, and the host's own FQDN resolves to
+      # 127.0.1.1 (Ubuntu /etc/hosts), which inside a container is the container's
+      # own loopback. Remote hosts in prometheus.yml resolve normally via DNS.
+      - "host.docker.internal:host-gateway"
     expose:
       - ${PROMETHEUS_PORT} # Exposes prometheus port 
     networks:
@@ -35,34 +53,61 @@ services:
 
   # Service definition for NodeExporter (collects system metrics)
   node-exporter:
-    image: prom/node-exporter:latest # Specifies the NodeExporter Docker image
+    image: prom/node-exporter:v1.10.2 # Specifies the NodeExporter Docker image
     container_name: ${NODE_EXPORTER_CONTAINER} # Container name from .env file
     restart: always # Ensures the container always restarts if it crashes
     env_file: .env # loads .env variables
-    # Skip k8s/containerd/docker overlays and pseudo-filesystems. Without these
-    # excludes the filesystem collector statfs()'s every k8s pod overlay mount
-    # visible under /rootfs and intermittently stalls scrapes for >10s.
+    # Host networking, because /proc/net/dev is network-namespace scoped: pointing
+    # --path.procfs at the host does NOT fix network metrics, since /proc/net
+    # resolves in the READING process's netns. On the bridge network this exporter
+    # reported the monitoring container's own veth pair as the host's only NIC.
+    # This is the same reason a Kubernetes node-exporter DaemonSet sets
+    # hostNetwork: true. Consequence: the container binds the host port directly,
+    # so Prometheus scrapes it by hostname rather than by Docker DNS.
+    network_mode: host
     command:
-      - '--collector.filesystem.mount-points-exclude=^/rootfs/(dev|proc|sys|run|var/lib/docker|var/lib/kubelet|var/lib/containerd|var/lib/snapd|home/containerd|home/docker_lib|mnt/data0/kubelet)($|/)|^/(dev|proc|sys|etc|host)($|/)'
+      # Bind the host port explicitly. Must not collide with a Kubernetes
+      # node-exporter DaemonSet, which owns 9100 on every cluster node.
+      - '--web.listen-address=:${NODE_EXPORTER_HOST_PORT:?set NODE_EXPORTER_HOST_PORT in .env}'
+      # Read the HOST namespace, not the container's. --path.rootfs additionally
+      # strips the /rootfs prefix from mountpoint labels, so this exporter emits
+      # the same labels ("/home", "/mnt/data0") as a Kubernetes DaemonSet and a
+      # central Prometheus can scrape both kinds of host with one set of rules.
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      # Mountpoint patterns below match the STRIPPED path (no /rootfs prefix).
+      # These excludes exist for scrape stability, not for semantics: reading the
+      # host mount table exposes every k8s pod overlay, and statfs() on those
+      # intermittently stalled scrapes for >10s. Which filesystems count as a
+      # monitored "physical drive" is defined once in config/recording_rules.yml.
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/(docker|kubelet|containerd|snapd)|snap|autofs|home/(containerd|docker_lib)|mnt/data0/kubelet)($|/)'
       # Network filesystems (cifs/nfs/fuse/etc) are excluded by type so statfs() is
       # never called on them: this host has CIFS shares whose servers go offline and
       # block statfs for ~5s each, stalling the whole scrape. node-exporter monitors
       # local host storage; remote shares should be monitored at their source.
       - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|ceph|cgroup2?|cifs|configfs|debugfs|devpts|devtmpfs|fuse|fuse\..*|fuseblk|fusectl|glusterfs|hugetlbfs|iso9660|mqueue|nfs|nfs4|nsfs|overlay|proc|procfs|pstore|ramfs|rpc_pipefs|securityfs|selinuxfs|smb3|squashfs|sysfs|tracefs|9p|erofs)$$'
       - '--collector.filesystem.mount-timeout=1s'
+      # Host networking exposes every container veth and Cilium interface. Drop the
+      # virtual ones from both network collectors so the panels show real NICs and
+      # series cardinality stays bounded as containers come and go.
+      - '--collector.netdev.device-exclude=^(veth.*|lxc.*|cilium_.*|br-.*|docker0)$$'
+      - '--collector.netclass.ignored-devices=^(veth.*|lxc.*|cilium_.*|br-.*|docker0)$$'
     volumes:
       - /proc:/host/proc:ro # Mounts the /proc directory from the host into the container (read-only)
       - /sys:/host/sys:ro # Mounts host /sys into the container read only
-      - /:/rootfs:ro # Mount the host root dir into the container read only
-    expose:
-      - ${NODE_EXPORTER_PORT} # Exposes node-exporter port
-    networks:
-      - monitoring # Connects node-exporter to monitoring network
+      # rslave propagation so filesystems mounted on the host AFTER this container
+      # starts (e.g. /mnt/scratch01) still become visible to the exporter.
+      - /:/rootfs:ro,rslave
 
   dcgm-exporter:
     image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.9-3.6.1-ubuntu22.04
     container_name: dcgm-exporter-c
-    restart: on-failure:3
+    # unless-stopped, NOT on-failure: DCGM exits 0 when the NVIDIA driver is
+    # reloaded underneath it (a GPU-operator install did exactly this on
+    # 2026-06-25). on-failure treats exit 0 as success, so the exporter stayed
+    # down for 7 weeks and every GPU alert sat in NoData.
+    restart: unless-stopped
     cap_add:
       - SYS_ADMIN
     environment:
@@ -84,7 +129,7 @@ services:
 
     # Service definition for Grafana (visualize metrics collected by Prometheus)
   grafana:
-    image: grafana/grafana # Specifies the Grafana Docker image
+    image: grafana/grafana:12.3.0 # Specifies the Grafana Docker image
     container_name: ${GRAFANA_CONTAINER} # Container name from .env file
     restart: always # Ensures the container always restarts if it crashes
     ports:
@@ -93,6 +138,10 @@ services:
     environment:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL} # Pass Slack webhook URL to Grafana
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL} # Set Grafana's external URL for correct links
+      # Set from .env so the admin password survives container recreation. A
+      # password changed through the UI lives in grafana_data; this makes the
+      # intended value declarative instead.
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       - GF_AUTH_ANONYMOUS_ENABLED=true # Enable anonymous access
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer # Anonymous users can only view dashboards
       - GF_SECURITY_ALLOW_EMBEDDING=true # Allow embedding in iframes if needed
@@ -103,7 +152,11 @@ services:
       - ./config/alerting.yml:/etc/grafana/provisioning/alerting/alerting.yml
       - ./config/alert_rules.yml:/etc/grafana/provisioning/alerting/alert_rules.yml
       - ./config/notification_policies.yml:/etc/grafana/provisioning/alerting/notification_policies.yml
-      # - grafana_data:/var/lib/grafana # Optional mount for persistent grafana data storage
+      # Persist Grafana state. Without this, every `docker compose up` discarded
+      # alert silences, alert state history, and annotations. Provisioned files
+      # still win for dashboards/alerts, so there is no conflict; the nested
+      # dashboard bind mount above takes precedence over this volume.
+      - grafana_data:/var/lib/grafana
     networks:
       - monitoring # Connects node-exporter to monitoring network
     depends_on:

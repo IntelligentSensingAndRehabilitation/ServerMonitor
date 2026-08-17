@@ -1,3 +1,11 @@
+# Slack contact points, one per alert type so each can be routed and throttled
+# independently (see config/notification_policies.yml).
+#
+# Message bodies always render {{ .Annotations.summary }}, which generate_alerts.py
+# builds from the thresholds in config/alerts_config.json. Do not restate a
+# threshold or a time window here: a hardcoded "90%" silently disagrees with the
+# config the moment someone changes it.
+
 apiVersion: 1
 
 contactPoints:
@@ -9,7 +17,7 @@ contactPoints:
         settings:
           url: ${SLACK_WEBHOOK_URL}
           title: "{{ range .Alerts }}Storage Alert - {{ .Labels.hostname }} ({{ .Labels.device }}){{ end }}"
-          text: "{{ range .Alerts }}⚠️ {{ .Labels.mountpoint }} is more than 90% full{{ end }}"
+          text: "{{ range .Alerts }}⚠️ {{ .Annotations.summary }}{{ end }}"
         disableResolveMessage: false
   - orgId: 1
     name: slack-alerts-storage-projection
@@ -19,7 +27,7 @@ contactPoints:
         settings:
           url: ${SLACK_WEBHOOK_URL}
           title: "{{ range .Alerts }}Storage Projection - {{ .Labels.hostname }} ({{ .Labels.device }}){{ end }}"
-          text: "{{ range .Alerts }}{{ .Labels.mountpoint }} is projected to fill within 30 days based on current usage trends{{ end }}"
+          text: "{{ range .Alerts }}📈 {{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}"
         disableResolveMessage: false
   - orgId: 1
     name: slack-alerts-system
@@ -38,6 +46,6 @@ contactPoints:
         type: slack
         settings:
           url: ${SLACK_WEBHOOK_URL}
-          title: "{{ range .Alerts }}GPU Alert - {{ .Labels.alertname }}{{ end }}"
-          text: "{{ range .Alerts }}🔥 {{ .Annotations.summary }} (GPU {{ .Labels.gpu }}){{ end }}"
+          title: "{{ range .Alerts }}GPU Alert - {{ .Labels.alertname }} - {{ .Labels.hostname }}{{ end }}"
+          text: "{{ range .Alerts }}🔥 {{ .Annotations.summary }}{{ end }}"
         disableResolveMessage: false

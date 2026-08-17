@@ -7,31 +7,48 @@ policies:
 - receiver: slack-alerts-system
   group_by:
   - alertname
+  - hostname
   group_wait: 0s
-  group_interval: 10s
-  repeat_interval: 3590s
+  group_interval: 1m
+  repeat_interval: 59m
   routes:
+  - receiver: slack-alerts-system
+    matchers:
+    - alert_type=watchdog
+    group_by:
+    - alertname
+    - hostname
+    - mountpoint
+    group_wait: 0s
+    group_interval: 1m
+    repeat_interval: 59m
   - receiver: slack-alerts-storage
     matchers:
     - alert_type=storage
     group_by:
     - alertname
+    - hostname
+    - mountpoint
     group_wait: 0s
-    group_interval: 10s
-    repeat_interval: 1790s
+    group_interval: 5m
+    repeat_interval: 25m
   - receiver: slack-alerts-storage-projection
     matchers:
     - alert_type=storage_projection
     group_by:
     - alertname
+    - hostname
+    - mountpoint
     group_wait: 0s
-    group_interval: 10s
-    repeat_interval: 31535990s
+    group_interval: 15m
+    repeat_interval: 10065m
   - receiver: slack-alerts-gpu
     matchers:
     - alert_type=gpu
     group_by:
     - alertname
+    - hostname
+    - mountpoint
     group_wait: 0s
-    group_interval: 10s
-    repeat_interval: 14390s
+    group_interval: 1m
+    repeat_interval: 239m

@@ -1,36 +1,66 @@
 {
-  "check_interval": "10s",
-  "storage_alerts": {
-    "enabled": true,
-    "threshold_percent": 90,
-    "sustained_duration": "10s",
-    "notification_interval": "30m"
+  "physical_drives": {
+    "fstypes": ["ext4", "ext3", "xfs", "btrfs", "zfs"],
+    "mountpoint_exclude_regex": "/(boot|snap|run|dev|proc|sys|var/lib|autofs)(|/.*)"
   },
+
+  "rule_group_intervals": {
+    "watchdog": "1m",
+    "system": "1m",
+    "storage": "5m",
+    "storage_projection": "15m",
+    "gpu": "1m"
+  },
+
+  "recording_rule_intervals": {
+    "physical_drives": "1m",
+    "storage_projection": "5m"
+  },
+
+  "watchdog_alerts": {
+    "enabled": true,
+    "sustained_duration": "5m",
+    "notification_interval": "1h"
+  },
+
   "memory_alerts": {
     "enabled": true,
     "threshold_percent": 95,
     "sustained_duration": "10m",
     "notification_interval": "1h"
   },
+
+  "storage_alerts": {
+    "enabled": true,
+    "threshold_percent": 90,
+    "sustained_duration": "15m",
+    "notification_interval": "30m"
+  },
+
   "storage_projection_alerts": {
     "enabled": true,
     "days_until_full_threshold": 30,
-    "lookback_window": "14d",
-    "sustained_duration": "1h",
-    "notification_interval": "365d"
+    "growth_window": "7d",
+    "confirm_window": "28d",
+    "min_used_percent": 75,
+    "sustained_duration": "6h",
+    "notification_interval": "7d"
   },
+
   "gpu_temperature_alerts": {
     "enabled": true,
     "threshold_celsius": 90,
     "sustained_duration": "15m",
     "notification_interval": "4h"
   },
+
   "gpu_memory_alerts": {
     "enabled": true,
     "threshold_percent": 95,
     "sustained_duration": "10m",
     "notification_interval": "1h"
   },
+
   "gpu_xid_alerts": {
     "enabled": true,
     "sustained_duration": "0s",

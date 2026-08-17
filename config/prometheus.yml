@@ -1,11 +1,25 @@
-# This configuration file sets up Prometheus to scrape metrics from defined sources,
-# including Prometheus itself and Node Exporter, with the ability to customize scrape intervals
-# Prometheus doesnt support env variables out of the box so not using that in this file currently
-# node exporter scrapes at global interval
+# Prometheus scrape and rule configuration.
+#
+# Prometheus has no native environment-variable expansion, so container names,
+# hostnames and ports are written literally here rather than pulled from .env.
+#
+# ADDING A HOST: append an entry to the node-exporter job's static_configs. Each
+# entry needs an explicit `hostname` label, because every recording rule and
+# dashboard panel groups by it. Scrape exactly ONE exporter per host: a host that
+# is a Kubernetes node already runs a node-exporter DaemonSet on :9100, and
+# scraping both it and this stack's container would double-count that host's drives.
 
 global:
   # Sets the default scraping interval for all jobs to 15 seconds
   scrape_interval: 15s
+  # Fallback rule evaluation interval. The groups in recording_rules.yml each
+  # declare their own interval, so this applies only to groups that do not.
+  evaluation_interval: 1m
+
+# Recording rules define the monitored physical-drive set and the storage growth
+# projection. Alerts in Grafana consume these instead of re-deriving them.
+rule_files:
+  - /etc/prometheus/recording_rules.yml
 
 scrape_configs:
   # Configuration for scraping metrics from the Prometheus server itself
@@ -16,18 +30,30 @@ scrape_configs:
       # Targets the Prometheus instance running at 'prometheus-c' on port 9090 (prometheus container)
       - targets: ['prometheus-c:9090']
 
-  # Configuration for scraping metrics from the node exporter, which provides the system level metrics
+  # System-level metrics: CPU, memory, network, disk I/O, filesystems.
   - job_name: 'node-exporter'
     # node-exporter only speaks HTTP/1.1; Prometheus 3.x defaults enable_http2: true,
     # whose h2c upgrade handshake on a keep-alive connection hangs ~10s here.
     enable_http2: false
     static_configs:
-      # Targets the node exporter instance running at 'node-exporter-c' on port 9100 (node exporter container)
-      - targets: ['node-exporter-c:9100']
+      # Reached by hostname, not Docker DNS: the exporter uses host networking (it
+      # must, to see the host's NICs), so it binds a host port directly. Every
+      # target here therefore has the same <host>:<port> shape whether the exporter
+      # is this stack's container or a Kubernetes DaemonSet, which is what makes a
+      # single central Prometheus able to scrape a mixed fleet.
+      #
+      # host.docker.internal is THIS host (see extra_hosts in docker-compose.yaml);
+      # remote hosts are listed by their real FQDN. Port 9101 is this stack's
+      # container: a Kubernetes node-exporter DaemonSet already owns 9100 on this
+      # host, and scraping only one of the two avoids double-counting its drives.
+      - targets: ['host.docker.internal:9101']
         labels:
           hostname: 'jc-compute03'
 
+  # NVIDIA GPU metrics: utilization, framebuffer memory, temperature, XID errors.
   - job_name: 'dcgm-exporter'
     scrape_interval: 15s
     static_configs:
       - targets: ['dcgm-exporter-c:9400']
+        labels:
+          hostname: 'jc-compute03'

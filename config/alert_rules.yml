@@ -5,9 +5,75 @@
 apiVersion: 1
 groups:
 - orgId: 1
-  name: server_monitoring_alerts
+  name: watchdog_alerts
   folder: Server Monitoring
-  interval: 10s
+  interval: 1m
+  rules:
+  - uid: scrape-target-down-alert
+    title: Scrape Target Down
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: up
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 1
+            type: lt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: Alerting
+    execErrState: Alerting
+    for: 5m
+    annotations:
+      summary: Monitoring target {{ $labels.job }} at {{ $labels.instance }} is down
+      description: Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance }}. Metrics and every alert derived from them are stale for that target.
+    labels:
+      alert_type: watchdog
+    isPaused: false
+- orgId: 1
+  name: system_alerts
+  folder: Server Monitoring
+  interval: 1m
   rules:
   - uid: memory-usage-alert
     title: Memory Usage Alert
@@ -61,15 +127,20 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: NoData
+    noDataState: OK
     execErrState: Alerting
     for: 10m
     annotations:
-      summary: Memory usage has been above 95% for 10m
-      description: Memory usage has exceeded 95% for 10m
+      summary: Memory usage on {{ $labels.hostname }} has been above 95% for 10m
+      description: Memory usage on {{ $labels.hostname }} is {{ $value }}%, above the 95% threshold
     labels:
       alert_type: system
     isPaused: false
+- orgId: 1
+  name: storage_alerts
+  folder: Server Monitoring
+  interval: 5m
+  rules:
   - uid: storage-alert-physical-drives
     title: Storage Alert
     condition: C
@@ -80,8 +151,7 @@ groups:
         to: 0
       datasourceUid: prometheus
       model:
-        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint=~"^/rootfs$|/rootfs/home$|/rootfs/mnt/data[0-9]+$",fstype!="tmpfs"}
-          / node_filesystem_size_bytes{mountpoint=~"^/rootfs$|/rootfs/home$|/rootfs/mnt/data[0-9]+$",fstype!="tmpfs"}))
+        expr: fs:physical:used_percent
         interval: ''
         refId: A
         datasource:
@@ -123,15 +193,20 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: NoData
+    noDataState: OK
     execErrState: Alerting
-    for: 10s
+    for: 15m
     annotations:
-      summary: Drive is more than 90% full
-      description: ''
+      summary: '{{ $labels.mountpoint }} on {{ $labels.hostname }} is more than 90% full'
+      description: '{{ $labels.mountpoint }} on {{ $labels.hostname }} is {{ $value }}% full'
     labels:
       alert_type: storage
     isPaused: false
+- orgId: 1
+  name: storage_projection_alerts
+  folder: Server Monitoring
+  interval: 15m
+  rules:
   - uid: storage-projection-alert
     title: Storage Projection Alert
     condition: C
@@ -142,8 +217,10 @@ groups:
         to: 0
       datasourceUid: prometheus
       model:
-        expr: predict_linear(node_filesystem_avail_bytes{mountpoint=~"^/rootfs$|/rootfs/home$|/rootfs/mnt/data[0-9]+$",fstype!="tmpfs"}[14d],
-          2592000)
+        expr: |-
+          fs:physical:days_until_full
+            and on(hostname, instance, device, mountpoint) (fs:physical:growth_bytes_per_day_28d > 0)
+            and on(hostname, instance, device, mountpoint) (fs:physical:used_percent > 75)
         interval: ''
         refId: A
         datasource:
@@ -174,7 +251,7 @@ groups:
         conditions:
         - evaluator:
             params:
-            - 0
+            - 30
             type: lt
           operator:
             type: and
@@ -185,16 +262,20 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: NoData
+    noDataState: OK
     execErrState: Alerting
-    for: 1h
+    for: 6h
     annotations:
-      summary: Drive projected to fill within 30 days
-      description: Based on 14d usage trend, drive is projected to run out of space
-        within 30 days
+      summary: '{{ $labels.mountpoint }} on {{ $labels.hostname }} is projected to fill within 30 days'
+      description: '{{ $labels.mountpoint }} on {{ $labels.hostname }} has {{ $value }} days of headroom left. Its 7d and 28d growth trends both point up and it is more than 75% full.'
     labels:
       alert_type: storage_projection
     isPaused: false
+- orgId: 1
+  name: gpu_alerts
+  folder: Server Monitoring
+  interval: 1m
+  rules:
   - uid: gpu-temperature-alert
     title: GPU Temperature Alert
     condition: C
@@ -247,12 +328,12 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: NoData
+    noDataState: OK
     execErrState: Alerting
     for: 15m
     annotations:
-      summary: GPU temperature has been above 90C for 15m
-      description: GPU {{ $labels.gpu }} temperature exceeded 90C for 15m
+      summary: GPU {{ $labels.gpu }} on {{ $labels.hostname }} has been above 90C for 15m
+      description: GPU {{ $labels.gpu }} temperature is {{ $value }}C, above the 90C threshold
     labels:
       alert_type: gpu
     isPaused: false
@@ -266,8 +347,7 @@ groups:
         to: 0
       datasourceUid: prometheus
       model:
-        expr: DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) *
-          100
+        expr: DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100
         interval: ''
         refId: A
         datasource:
@@ -309,12 +389,12 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: NoData
+    noDataState: OK
     execErrState: Alerting
     for: 10m
     annotations:
-      summary: GPU memory usage has been above 95% for 10m
-      description: GPU {{ $labels.gpu }} memory usage exceeded 95% for 10m
+      summary: GPU {{ $labels.gpu }} memory on {{ $labels.hostname }} has been above 95% for 10m
+      description: GPU {{ $labels.gpu }} memory usage is {{ $value }}%, above the 95% threshold
     labels:
       alert_type: gpu
     isPaused: false
@@ -370,12 +450,12 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: NoData
+    noDataState: OK
     execErrState: Alerting
     for: 0s
     annotations:
-      summary: GPU XID error detected
-      description: GPU {{ $labels.gpu }} reported XID error code {{ $value }}
+      summary: GPU {{ $labels.gpu }} on {{ $labels.hostname }} reported an XID error
+      description: GPU {{ $labels.gpu }} reported XID error code {{ $value }}, indicating a hardware or driver fault
     labels:
       alert_type: gpu
     isPaused: false
