@@ -195,3 +195,187 @@ groups:
     labels:
       alert_type: storage_projection
     isPaused: false
+  - uid: gpu-temperature-alert
+    title: GPU Temperature Alert
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: DCGM_FI_DEV_GPU_TEMP
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 90
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 15m
+    annotations:
+      summary: GPU temperature has been above 90C for 15m
+      description: GPU {{ $labels.gpu }} temperature exceeded 90C for 15m
+    labels:
+      alert_type: gpu
+    isPaused: false
+  - uid: gpu-memory-alert
+    title: GPU Memory Alert
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) *
+          100
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 95
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 10m
+    annotations:
+      summary: GPU memory usage has been above 95% for 10m
+      description: GPU {{ $labels.gpu }} memory usage exceeded 95% for 10m
+    labels:
+      alert_type: gpu
+    isPaused: false
+  - uid: gpu-xid-error-alert
+    title: GPU XID Error Alert
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: DCGM_FI_DEV_XID_ERRORS
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 0
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: NoData
+    execErrState: Alerting
+    for: 0s
+    annotations:
+      summary: GPU XID error detected
+      description: GPU {{ $labels.gpu }} reported XID error code {{ $value }}
+    labels:
+      alert_type: gpu
+    isPaused: false

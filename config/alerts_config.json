@@ -18,5 +18,22 @@
     "lookback_window": "14d",
     "sustained_duration": "1h",
     "notification_interval": "365d"
+  },
+  "gpu_temperature_alerts": {
+    "enabled": true,
+    "threshold_celsius": 90,
+    "sustained_duration": "15m",
+    "notification_interval": "4h"
+  },
+  "gpu_memory_alerts": {
+    "enabled": true,
+    "threshold_percent": 95,
+    "sustained_duration": "10m",
+    "notification_interval": "1h"
+  },
+  "gpu_xid_alerts": {
+    "enabled": true,
+    "sustained_duration": "0s",
+    "notification_interval": "30m"
   }
 }

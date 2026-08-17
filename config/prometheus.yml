@@ -18,11 +18,14 @@ scrape_configs:
 
   # Configuration for scraping metrics from the node exporter, which provides the system level metrics
   - job_name: 'node-exporter'
+    # node-exporter only speaks HTTP/1.1; Prometheus 3.x defaults enable_http2: true,
+    # whose h2c upgrade handshake on a keep-alive connection hangs ~10s here.
+    enable_http2: false
     static_configs:
       # Targets the node exporter instance running at 'node-exporter-c' on port 9100 (node exporter container)
       - targets: ['node-exporter-c:9100']
         labels:
-          hostname: 'jc-compute01'
+          hostname: 'jc-compute03'
 
   - job_name: 'dcgm-exporter'
     scrape_interval: 15s

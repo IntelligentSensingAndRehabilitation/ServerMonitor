@@ -31,3 +31,13 @@ contactPoints:
           title: "{{ range .Alerts }}{{ .Labels.alertname }} - {{ .Labels.hostname }}{{ end }}"
           text: "{{ range .Alerts }}⚠️ {{ .Annotations.summary }}{{ end }}"
         disableResolveMessage: false
+  - orgId: 1
+    name: slack-alerts-gpu
+    receivers:
+      - uid: slack-alerts-gpu
+        type: slack
+        settings:
+          url: ${SLACK_WEBHOOK_URL}
+          title: "{{ range .Alerts }}GPU Alert - {{ .Labels.alertname }}{{ end }}"
+          text: "{{ range .Alerts }}🔥 {{ .Annotations.summary }} (GPU {{ .Labels.gpu }}){{ end }}"
+        disableResolveMessage: false

@@ -39,12 +39,23 @@ services:
     container_name: ${NODE_EXPORTER_CONTAINER} # Container name from .env file
     restart: always # Ensures the container always restarts if it crashes
     env_file: .env # loads .env variables
+    # Skip k8s/containerd/docker overlays and pseudo-filesystems. Without these
+    # excludes the filesystem collector statfs()'s every k8s pod overlay mount
+    # visible under /rootfs and intermittently stalls scrapes for >10s.
+    command:
+      - '--collector.filesystem.mount-points-exclude=^/rootfs/(dev|proc|sys|run|var/lib/docker|var/lib/kubelet|var/lib/containerd|var/lib/snapd|home/containerd|home/docker_lib|mnt/data0/kubelet)($|/)|^/(dev|proc|sys|etc|host)($|/)'
+      # Network filesystems (cifs/nfs/fuse/etc) are excluded by type so statfs() is
+      # never called on them: this host has CIFS shares whose servers go offline and
+      # block statfs for ~5s each, stalling the whole scrape. node-exporter monitors
+      # local host storage; remote shares should be monitored at their source.
+      - '--collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|ceph|cgroup2?|cifs|configfs|debugfs|devpts|devtmpfs|fuse|fuse\..*|fuseblk|fusectl|glusterfs|hugetlbfs|iso9660|mqueue|nfs|nfs4|nsfs|overlay|proc|procfs|pstore|ramfs|rpc_pipefs|securityfs|selinuxfs|smb3|squashfs|sysfs|tracefs|9p|erofs)$$'
+      - '--collector.filesystem.mount-timeout=1s'
     volumes:
       - /proc:/host/proc:ro # Mounts the /proc directory from the host into the container (read-only)
       - /sys:/host/sys:ro # Mounts host /sys into the container read only
       - /:/rootfs:ro # Mount the host root dir into the container read only
     expose:
-      - ${NODE_EXPORTER_PORT} # Exposes node-exporter port 
+      - ${NODE_EXPORTER_PORT} # Exposes node-exporter port
     networks:
       - monitoring # Connects node-exporter to monitoring network
 

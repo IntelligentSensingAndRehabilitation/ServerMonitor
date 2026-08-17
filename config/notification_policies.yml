@@ -27,3 +27,11 @@ policies:
     group_wait: 0s
     group_interval: 10s
     repeat_interval: 31535990s
+  - receiver: slack-alerts-gpu
+    matchers:
+    - alert_type=gpu
+    group_by:
+    - alertname
+    group_wait: 0s
+    group_interval: 10s
+    repeat_interval: 14390s

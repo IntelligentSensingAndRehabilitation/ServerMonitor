@@ -146,6 +146,49 @@ if alerts_config.get("storage_projection_alerts", {}).get("enabled"):
         evaluator_type="lt",
     ))
 
+# GPU Temperature alert
+if alerts_config.get("gpu_temperature_alerts", {}).get("enabled"):
+    cfg = alerts_config["gpu_temperature_alerts"]
+    alert_rules.append(create_alert(
+        uid="gpu-temperature-alert",
+        title="GPU Temperature Alert",
+        expr='DCGM_FI_DEV_GPU_TEMP',
+        summary=f"GPU temperature has been above {cfg['threshold_celsius']}C for {cfg['sustained_duration']}",
+        description=f"GPU {{{{ $labels.gpu }}}} temperature exceeded {cfg['threshold_celsius']}C for {cfg['sustained_duration']}",
+        for_duration=cfg["sustained_duration"],
+        threshold=cfg["threshold_celsius"],
+        alert_type="gpu",
+    ))
+
+# GPU Memory alert
+if alerts_config.get("gpu_memory_alerts", {}).get("enabled"):
+    cfg = alerts_config["gpu_memory_alerts"]
+    gpu_mem_expr = 'DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100'
+    alert_rules.append(create_alert(
+        uid="gpu-memory-alert",
+        title="GPU Memory Alert",
+        expr=gpu_mem_expr,
+        summary=f"GPU memory usage has been above {cfg['threshold_percent']}% for {cfg['sustained_duration']}",
+        description=f"GPU {{{{ $labels.gpu }}}} memory usage exceeded {cfg['threshold_percent']}% for {cfg['sustained_duration']}",
+        for_duration=cfg["sustained_duration"],
+        threshold=cfg["threshold_percent"],
+        alert_type="gpu",
+    ))
+
+# GPU XID error alert - any non-zero XID indicates a hardware/driver error
+if alerts_config.get("gpu_xid_alerts", {}).get("enabled"):
+    cfg = alerts_config["gpu_xid_alerts"]
+    alert_rules.append(create_alert(
+        uid="gpu-xid-error-alert",
+        title="GPU XID Error Alert",
+        expr='DCGM_FI_DEV_XID_ERRORS',
+        summary="GPU XID error detected",
+        description="GPU {{ $labels.gpu }} reported XID error code {{ $value }}",
+        for_duration=cfg["sustained_duration"],
+        threshold=0,
+        alert_type="gpu",
+    ))
+
 # Write alert rules with global check interval
 with open('config/alert_rules.yml', 'w') as f:
     f.write("# AUTO-GENERATED FILE - DO NOT EDIT MANUALLY\n")
@@ -181,6 +224,7 @@ def repeat_interval_for(alert_cfg: dict) -> str:
 system_repeat = repeat_interval_for(alerts_config.get("cpu_alerts", alerts_config.get("memory_alerts")))
 storage_repeat = repeat_interval_for(alerts_config["storage_alerts"])
 projection_repeat = repeat_interval_for(alerts_config["storage_projection_alerts"])
+gpu_repeat = repeat_interval_for(alerts_config["gpu_temperature_alerts"])
 
 with open('config/notification_policies.yml', 'w') as f:
     f.write("# AUTO-GENERATED FILE - DO NOT EDIT MANUALLY\n")
@@ -210,6 +254,14 @@ with open('config/notification_policies.yml', 'w') as f:
                     "group_wait": "0s",
                     "group_interval": alerts_config["check_interval"],
                     "repeat_interval": projection_repeat
+                },
+                {
+                    "receiver": "slack-alerts-gpu",
+                    "matchers": ["alert_type=gpu"],
+                    "group_by": ["alertname"],
+                    "group_wait": "0s",
+                    "group_interval": alerts_config["check_interval"],
+                    "repeat_interval": gpu_repeat
                 }
             ]
         }]
