@@ -39,6 +39,11 @@ LBL_JOB = "{{ $labels.job }}"
 LBL_GPU = "{{ $labels.gpu }}"
 VALUE = "{{ $value }}"
 
+# Lookback for the scrape watchdog. Must stay below watchdog_alerts.sustained_duration
+# so that stale series from a renamed target age out before the `for` elapses; validated
+# in validate().
+WATCHDOG_QUERY_RANGE_SECONDS = 120
+
 # Labels that identify one filesystem on one host. Every projection rule joins on
 # exactly this set, so they must all be produced by the same `by` clause.
 FS_LABELS = "hostname, instance, device, mountpoint"
@@ -182,8 +187,17 @@ def build_alert(
     cfg: dict,
     evaluator_type: str = "gt",
     no_data_state: str = "OK",
+    query_range_seconds: int = 600,
 ) -> dict:
-    """Create a Grafana unified alert rule: query A, reduce to B, threshold to C."""
+    """Create a Grafana unified alert rule: query A, reduce to B, threshold to C.
+
+    query_range_seconds is the lookback Grafana reduces over. It matters more than it
+    looks: a series that stops being produced (a renamed target, a relabeled
+    mountpoint) stays in the range result for this long, and `last` then reduces it to
+    its final value. If that value breaches the threshold and the window outlives the
+    rule's `for`, the rule fires on a series that no longer exists. Keep the window
+    shorter than sustained_duration for any rule whose absent state is a breach.
+    """
     return {
         "uid": uid,
         "title": title,
@@ -191,7 +205,7 @@ def build_alert(
         "data": [
             {
                 "refId": "A",
-                "relativeTimeRange": {"from": 600, "to": 0},
+                "relativeTimeRange": {"from": query_range_seconds, "to": 0},
                 "datasourceUid": "prometheus",
                 "model": {
                     "expr": expr,
@@ -251,6 +265,17 @@ def build_alert_groups(config: dict) -> list[dict]:
 
     if config["watchdog_alerts"]["enabled"]:
         cfg = config["watchdog_alerts"]
+
+        # Two distinct failures, deliberately two rules.
+        #
+        # 1. A configured target that cannot be scraped -> up == 0.
+        # 2. A whole job that has disappeared from the config -> absent(up{job=...}).
+        #
+        # It is tempting to fold the second into the first with noDataState: Alerting,
+        # but that latches PERMANENTLY. Grafana never resolves an alert instance whose
+        # series has vanished when noDataState is Alerting, so every target that is ever
+        # renamed or removed leaves a false "down" alert firing forever. Verified on
+        # Grafana 12.3: three renamed targets stayed Alerting indefinitely.
         rules_by_type["watchdog"].append(
             build_alert(
                 uid="scrape-target-down-alert",
@@ -267,9 +292,37 @@ def build_alert_groups(config: dict) -> list[dict]:
                 alert_type="watchdog",
                 cfg=cfg,
                 evaluator_type="lt",
-                # A vanished target produces no `up` series at all; that is itself the
-                # failure this rule exists to catch.
-                no_data_state="Alerting",
+                no_data_state="OK",
+                # Deliberately shorter than sustained_duration. A removed or renamed
+                # target leaves up=0 samples behind, and with the default 600s window
+                # those outlive a 5m `for` and page for a target that was merely
+                # renamed. A short window lets them age out first, while a target that
+                # is really down keeps producing up=0 and still fires.
+                query_range_seconds=WATCHDOG_QUERY_RANGE_SECONDS,
+            )
+        )
+
+        # absent() yields a series carrying the job label when nothing matches, and
+        # nothing at all when the job is present, so this is presence-based and cannot
+        # latch on a per-instance series.
+        required_jobs = cfg["required_jobs"]
+        absent_expr = "\n  or ".join(f'absent(up{{job="{job}"}})' for job in required_jobs)
+
+        rules_by_type["watchdog"].append(
+            build_alert(
+                uid="monitoring-job-missing-alert",
+                title="Monitoring Job Missing",
+                expr=absent_expr,
+                summary=f"No targets at all are configured for job {LBL_JOB}",
+                description=(
+                    f"Prometheus has no targets for the required job {LBL_JOB}. Either the scrape config "
+                    "lost them or Prometheus failed to load it, and nothing is being collected."
+                ),
+                threshold=0,
+                alert_type="watchdog",
+                cfg=cfg,
+                no_data_state="OK",
+                query_range_seconds=WATCHDOG_QUERY_RANGE_SECONDS,
             )
         )
 
@@ -485,6 +538,16 @@ def validate(config: dict) -> None:
         for percent_key in ("threshold_percent", "min_used_percent"):
             if percent_key in cfg and not 0 <= cfg[percent_key] <= 100:
                 raise ValueError(f"{key}: {percent_key} must be between 0 and 100, got {cfg[percent_key]}")
+
+    watchdog = config["watchdog_alerts"]
+    if watchdog["enabled"]:
+        sustained = parse_duration_to_seconds(watchdog["sustained_duration"])
+        if sustained <= WATCHDOG_QUERY_RANGE_SECONDS:
+            raise ValueError(
+                f"watchdog_alerts: sustained_duration ({watchdog['sustained_duration']}) must exceed the "
+                f"{WATCHDOG_QUERY_RANGE_SECONDS}s query window, or a renamed target's leftover up=0 "
+                "samples will fire the watchdog before they age out"
+            )
 
     projection = config["storage_projection_alerts"]
     if projection["enabled"]:

@@ -19,6 +19,7 @@
 
   "watchdog_alerts": {
     "enabled": true,
+    "required_jobs": ["node-exporter", "prometheus"],
     "sustained_duration": "5m",
     "notification_interval": "1h"
   },

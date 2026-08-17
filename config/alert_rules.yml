@@ -15,7 +15,7 @@ groups:
     data:
     - refId: A
       relativeTimeRange:
-        from: 600
+        from: 120
         to: 0
       datasourceUid: prometheus
       model:
@@ -61,12 +61,75 @@ groups:
         expression: B
         refId: C
         type: threshold
-    noDataState: Alerting
+    noDataState: OK
     execErrState: Alerting
     for: 5m
     annotations:
       summary: Monitoring target {{ $labels.job }} at {{ $labels.instance }} is down
       description: Prometheus cannot scrape {{ $labels.job }} at {{ $labels.instance }}. Metrics and every alert derived from them are stale for that target.
+    labels:
+      alert_type: watchdog
+    isPaused: false
+  - uid: monitoring-job-missing-alert
+    title: Monitoring Job Missing
+    condition: C
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 120
+        to: 0
+      datasourceUid: prometheus
+      model:
+        expr: |-
+          absent(up{job="node-exporter"})
+            or absent(up{job="prometheus"})
+        interval: ''
+        refId: A
+        datasource:
+          type: prometheus
+          uid: prometheus
+    - refId: B
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        expression: A
+        reducer: last
+        refId: B
+        type: reduce
+    - refId: C
+      relativeTimeRange:
+        from: 0
+        to: 0
+      datasourceUid: '-100'
+      model:
+        datasource:
+          type: __expr__
+          uid: '-100'
+        conditions:
+        - evaluator:
+            params:
+            - 0
+            type: gt
+          operator:
+            type: and
+          query:
+            params:
+            - B
+          type: query
+        expression: B
+        refId: C
+        type: threshold
+    noDataState: OK
+    execErrState: Alerting
+    for: 5m
+    annotations:
+      summary: No targets at all are configured for job {{ $labels.job }}
+      description: Prometheus has no targets for the required job {{ $labels.job }}. Either the scrape config lost them or Prometheus failed to load it, and nothing is being collected.
     labels:
       alert_type: watchdog
     isPaused: false

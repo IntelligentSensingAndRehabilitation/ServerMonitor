@@ -138,9 +138,30 @@ class TestProjectionAlert:
         absence is the healthy case and must not surface as NoData."""
         assert rules_by_title["Storage Projection Alert"]["noDataState"] == "OK"
 
-    def test_watchdog_treats_no_data_as_alerting(self, rules_by_title: dict) -> None:
-        """A target that disappears produces no `up` series; that is the failure."""
-        assert rules_by_title["Scrape Target Down"]["noDataState"] == "Alerting"
+    def test_no_rule_uses_alerting_no_data_state(self, rules_by_title: dict) -> None:
+        """Grafana never resolves an alert instance whose series has vanished when
+        noDataState is Alerting, so a renamed target latches a false alert forever
+        (verified on Grafana 12.3). Disappearance is covered by the absent() rule."""
+        for title, rule in rules_by_title.items():
+            assert rule["noDataState"] == "OK", title
+
+    def test_missing_job_is_covered_by_an_absent_rule(self, config: dict, rules_by_title: dict) -> None:
+        expr = rules_by_title["Monitoring Job Missing"]["data"][0]["model"]["expr"]
+        for job in config["watchdog_alerts"]["required_jobs"]:
+            assert f'absent(up{{job="{job}"}})' in expr
+
+    def test_watchdog_window_is_shorter_than_its_for(self, config: dict, rules_by_title: dict) -> None:
+        """A renamed or removed target leaves up=0 samples in the lookback window. If the
+        window outlives `for`, the watchdog pages for a target that was merely renamed."""
+        rule = rules_by_title["Scrape Target Down"]
+        window = rule["data"][0]["relativeTimeRange"]["from"]
+        sustained = generate_alerts.parse_duration_to_seconds(rule["for"])
+        assert window < sustained
+
+    def test_rejects_watchdog_for_shorter_than_window(self, config: dict) -> None:
+        config["watchdog_alerts"]["sustained_duration"] = "1m"
+        with pytest.raises(ValueError, match="query window"):
+            generate_alerts.validate(config)
 
     def test_projection_requires_long_window_agreement(self, config: dict, rules_by_title: dict) -> None:
         """A single bulk copy can satisfy the short window but not both windows."""
