@@ -110,8 +110,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "CPU Usage",
+          "expr": "100 - (avg by(hostname) (rate(node_cpu_seconds_total{mode=\"idle\",hostname=~\"$host\"}[5m])) * 100)",
+          "legendFormat": "{{hostname}}",
           "refId": "A"
         }
       ],
@@ -207,8 +207,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))",
-          "legendFormat": "Memory Usage",
+          "expr": "100 * (1 - (node_memory_MemAvailable_bytes{hostname=~\"$host\"} / node_memory_MemTotal_bytes{hostname=~\"$host\"}))",
+          "legendFormat": "{{hostname}}",
           "refId": "A"
         }
       ],
@@ -285,7 +285,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - (node_filesystem_avail_bytes{mountpoint=\"$mountpoint\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=\"$mountpoint\",fstype!=\"tmpfs\"}))",
+          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=\"$mountpoint\"}",
           "refId": "A"
         }
       ],
@@ -387,8 +387,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "irate(node_network_receive_bytes_total{device!~\"lo|docker.*|veth.*\"}[5m])",
-          "legendFormat": "{{device}} Receive",
+          "expr": "rate(node_network_receive_bytes_total{hostname=~\"$host\",device!=\"lo\"}[5m])",
+          "legendFormat": "{{hostname}} {{device}} rx",
           "refId": "A"
         },
         {
@@ -396,8 +396,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "irate(node_network_transmit_bytes_total{device!~\"lo|docker.*|veth.*\"}[5m])",
-          "legendFormat": "{{device}} Transmit",
+          "expr": "rate(node_network_transmit_bytes_total{hostname=~\"$host\",device!=\"lo\"}[5m])",
+          "legendFormat": "{{hostname}} {{device}} tx",
           "refId": "B"
         }
       ],
@@ -499,8 +499,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "irate(node_disk_read_bytes_total{device=~\"nvme.*|md.*\"}[5m])",
-          "legendFormat": "{{device}} Read",
+          "expr": "rate(node_disk_read_bytes_total{hostname=~\"$host\",device=~\"nvme.*|md.*|sd.*\"}[5m])",
+          "legendFormat": "{{hostname}} {{device}} read",
           "refId": "A"
         },
         {
@@ -508,8 +508,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "irate(node_disk_written_bytes_total{device=~\"nvme.*|md.*\"}[5m])",
-          "legendFormat": "{{device}} Write",
+          "expr": "rate(node_disk_written_bytes_total{hostname=~\"$host\",device=~\"nvme.*|md.*|sd.*\"}[5m])",
+          "legendFormat": "{{hostname}} {{device}} write",
           "refId": "B"
         }
       ],
@@ -613,8 +613,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - (node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}))",
-          "legendFormat": "{{mountpoint}}",
+          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "legendFormat": "{{hostname}} {{mountpoint}}",
           "refId": "A"
         }
       ],
@@ -784,7 +784,7 @@
                     "options": {
                       "match": "null",
                       "result": {
-                        "text": "> 2 years",
+                        "text": "not filling",
                         "color": "green"
                       }
                     }
@@ -832,81 +832,16 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Days Until Full (14d)"
+              "options": "Daily Rate (28d)"
             },
             "properties": [
               {
                 "id": "unit",
-                "value": "d"
+                "value": "decbytes"
               },
               {
                 "id": "decimals",
-                "value": 0
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "red",
-                      "value": null
-                    },
-                    {
-                      "color": "orange",
-                      "value": 30
-                    },
-                    {
-                      "color": "yellow",
-                      "value": 90
-                    },
-                    {
-                      "color": "green",
-                      "value": 180
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "special",
-                    "options": {
-                      "match": "null",
-                      "result": {
-                        "text": "> 2 years",
-                        "color": "green"
-                      }
-                    }
-                  },
-                  {
-                    "type": "range",
-                    "options": {
-                      "to": 0,
-                      "result": {
-                        "text": "> 2 years",
-                        "color": "green"
-                      }
-                    }
-                  },
-                  {
-                    "type": "range",
-                    "options": {
-                      "from": 730,
-                      "result": {
-                        "text": "> 2 years",
-                        "color": "green"
-                      }
-                    }
-                  }
-                ]
+                "value": 2
               }
             ]
           }
@@ -938,7 +873,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_filesystem_size_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}",
+          "expr": "fs:physical:size_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -948,7 +883,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}",
+          "expr": "fs:physical:avail_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "B"
@@ -958,7 +893,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_filesystem_size_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"} - node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}",
+          "expr": "fs:physical:used_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -968,7 +903,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - (node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}))",
+          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "D"
@@ -978,7 +913,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"} / (-deriv(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}[7d]))) / 86400",
+          "expr": "fs:physical:days_until_full{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "E",
@@ -989,7 +924,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "-deriv(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}[7d]) * 86400",
+          "expr": "fs:physical:growth_bytes_per_day_7d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "F",
@@ -1000,7 +935,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"} / (-deriv(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}[14d]))) / 86400",
+          "expr": "fs:physical:growth_bytes_per_day_28d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
           "format": "table",
           "instant": true,
           "refId": "G",
@@ -1043,7 +978,7 @@
               "device": "Device",
               "mountpoint": "Mount Point",
               "Value #F": "Daily Rate (7d)",
-              "Value #G": "Days Until Full (14d)"
+              "Value #G": "Daily Rate (28d)"
             }
           }
         },
@@ -1095,7 +1030,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "Days Until Full (14d)": {
+              "Daily Rate (28d)": {
                 "aggregations": [
                   "lastNotNull"
                 ],
@@ -1117,7 +1052,7 @@
               "Used % (lastNotNull)": 5,
               "Days Until Full (lastNotNull)": 6,
               "Daily Rate (7d) (lastNotNull)": 7,
-              "Days Until Full (14d) (lastNotNull)": 8
+              "Daily Rate (28d) (lastNotNull)": 8
             },
             "renameByName": {
               "Available (lastNotNull)": "Available",
@@ -1125,8 +1060,7 @@
               "Used (lastNotNull)": "Used",
               "Used % (lastNotNull)": "Used %",
               "Days Until Full (lastNotNull)": "Days Until Full",
-              "Daily Rate (7d) (lastNotNull)": "Daily Rate (7d)",
-              "Days Until Full (30d) (lastNotNull)": "Days Until Full (14d)"
+              "Daily Rate (7d) (lastNotNull)": "Daily Rate (7d)"
             }
           }
         }
@@ -1239,8 +1173,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "-deriv(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}[6h]) * 86400",
-          "legendFormat": "{{mountpoint}} (6h rate)",
+          "expr": "fs:physical:growth_bytes_per_day_7d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "legendFormat": "{{hostname}} {{mountpoint}} (7d)",
           "refId": "A",
           "interval": "15m"
         },
@@ -1249,8 +1183,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "-deriv(node_filesystem_avail_bytes{mountpoint=~\"$mountpoint_regex\",fstype!=\"tmpfs\"}[7d]) * 86400",
-          "legendFormat": "{{mountpoint}} (7d avg)",
+          "expr": "fs:physical:growth_bytes_per_day_28d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "legendFormat": "{{hostname}} {{mountpoint}} (28d)",
           "refId": "B",
           "interval": "15m"
         }
@@ -1361,7 +1295,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "DCGM_FI_DEV_GPU_UTIL",
+          "expr": "DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"}",
           "legendFormat": "GPU {{gpu}}",
           "refId": "A"
         }
@@ -1462,7 +1396,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE) * 100",
+          "expr": "DCGM_FI_DEV_FB_USED{hostname=~\"$host\"} / (DCGM_FI_DEV_FB_USED{hostname=~\"$host\"} + DCGM_FI_DEV_FB_FREE{hostname=~\"$host\"}) * 100",
           "legendFormat": "GPU {{gpu}}",
           "refId": "A"
         }
@@ -1532,7 +1466,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(avg(DCGM_FI_DEV_GPU_UTIL)[24h:5m])",
+          "expr": "avg_over_time(avg(DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"})[24h:5m])",
           "legendFormat": "Avg GPU Utilization (24h)",
           "refId": "A"
         }
@@ -1604,7 +1538,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count_over_time((DCGM_FI_DEV_GPU_UTIL > 10)[24h:5m]) / count_over_time(DCGM_FI_DEV_GPU_UTIL[24h:5m]) * 24",
+          "expr": "count_over_time((DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"} > 10)[24h:5m]) / count_over_time(DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"}[24h:5m]) * 24",
           "legendFormat": "GPU {{gpu}}",
           "refId": "A",
           "interval": "5m"
@@ -1680,7 +1614,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "DCGM_FI_DEV_XID_ERRORS",
+          "expr": "DCGM_FI_DEV_XID_ERRORS{hostname=~\"$host\"}",
           "legendFormat": "GPU {{gpu}}",
           "refId": "A"
         }
@@ -1784,7 +1718,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "DCGM_FI_DEV_GPU_TEMP",
+              "expr": "DCGM_FI_DEV_GPU_TEMP{hostname=~\"$host\"}",
               "legendFormat": "GPU {{gpu}}",
               "refId": "A"
             }
@@ -1874,7 +1808,7 @@
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "DCGM_FI_DEV_POWER_USAGE",
+              "expr": "DCGM_FI_DEV_POWER_USAGE{hostname=~\"$host\"}",
               "legendFormat": "GPU {{gpu}}",
               "refId": "A"
             }
@@ -1895,40 +1829,64 @@
   "templating": {
     "list": [
       {
+        "name": "host",
+        "label": "Host",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(fs:physical:size_bytes, hostname)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "regex": "",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "sort": 1,
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "definition": "label_values(node_filesystem_size_bytes{fstype!=\"tmpfs\"}, mountpoint)",
         "hide": 0,
-        "includeAll": false,
+        "includeAll": true,
         "multi": true,
         "name": "mountpoint",
         "options": [],
         "query": {
-          "query": "label_values(node_filesystem_size_bytes{fstype!=\"tmpfs\"}, mountpoint)",
+          "query": "label_values(fs:physical:used_percent{hostname=~\"$host\"}, mountpoint)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": "/^\\/rootfs$|\\/rootfs\\/home$|\\/rootfs\\/mnt\\/data[01]$/",
+        "regex": "",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query",
         "current": {
           "selected": true,
           "text": [
-            "/rootfs",
-            "/rootfs/home",
-            "/rootfs/mnt/data0",
-            "/rootfs/mnt/data1"
+            "All"
           ],
           "value": [
-            "/rootfs",
-            "/rootfs/home",
-            "/rootfs/mnt/data0",
-            "/rootfs/mnt/data1"
+            "$__all"
           ]
-        }
+        },
+        "allValue": ".*"
       },
       {
         "datasource": {
@@ -1942,7 +1900,7 @@
         "name": "mountpoint_label",
         "options": [],
         "query": {
-          "query": "label_values(node_filesystem_size_bytes{mountpoint=\"$mountpoint\",fstype!=\"tmpfs\"}, device)",
+          "query": "label_values(fs:physical:size_bytes{hostname=~\"$host\",mountpoint=\"$mountpoint\"}, device)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1988,7 +1946,7 @@
         "name": "has_gpus",
         "options": [],
         "query": {
-          "query": "query_result(count(DCGM_FI_DEV_GPU_UTIL))",
+          "query": "query_result(count(DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"}))",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -2008,5 +1966,6 @@
   "title": "Server Monitor - Dynamic",
   "uid": "server-monitor-dynamic",
   "version": 0,
-  "weekStart": ""
+  "weekStart": "",
+  "description": "CPU, memory, network, disk and storage for all scraped hosts. Storage panels read the fs:physical:* recording rules, so the set of monitored drives is defined once in config/alerts_config.json. Days Until Full is blank when a drive is not filling."
 }
