@@ -613,7 +613,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "legendFormat": "{{hostname}} {{mountpoint}}",
           "refId": "A"
         }
@@ -873,7 +873,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:size_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:size_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -883,7 +883,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:avail_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:avail_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "B"
@@ -893,7 +893,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:used_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:used_bytes{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -903,7 +903,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "D"
@@ -913,7 +913,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:days_until_full{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:days_until_full{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "E",
@@ -924,7 +924,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:growth_bytes_per_day_7d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:growth_bytes_per_day_7d{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "F",
@@ -935,7 +935,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:growth_bytes_per_day_28d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:growth_bytes_per_day_28d{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "format": "table",
           "instant": true,
           "refId": "G",
@@ -1173,7 +1173,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:growth_bytes_per_day_7d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:growth_bytes_per_day_7d{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "legendFormat": "{{hostname}} {{mountpoint}} (7d)",
           "refId": "A",
           "interval": "15m"
@@ -1183,7 +1183,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "fs:physical:growth_bytes_per_day_28d{hostname=~\"$host\",mountpoint=~\"$mountpoint_regex\"}",
+          "expr": "fs:physical:growth_bytes_per_day_28d{hostname=~\"$host\",mountpoint=~\"$mountpoint\"}",
           "legendFormat": "{{hostname}} {{mountpoint}} (28d)",
           "refId": "B",
           "interval": "15m"
@@ -1869,11 +1869,11 @@
         "name": "mountpoint",
         "options": [],
         "query": {
-          "query": "label_values(fs:physical:used_percent{hostname=~\"$host\"}, mountpoint)",
+          "query": "query_result(fs:physical:used_percent{hostname=~\"$host\"})",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
-        "refresh": 1,
-        "regex": "",
+        "refresh": 2,
+        "regex": "/mountpoint=\"([^\"]+)\"/",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query",
@@ -1887,52 +1887,6 @@
           ]
         },
         "allValue": ".*"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "definition": "query_result(node_filesystem_size_bytes{mountpoint=\"$mountpoint\",fstype!=\"tmpfs\"})",
-        "hide": 2,
-        "includeAll": false,
-        "multi": false,
-        "name": "mountpoint_label",
-        "options": [],
-        "query": {
-          "query": "label_values(fs:physical:size_bytes{hostname=~\"$host\",mountpoint=\"$mountpoint\"}, device)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "type": "query"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "definition": "",
-        "hide": 2,
-        "includeAll": false,
-        "multi": false,
-        "name": "mountpoint_regex",
-        "options": [],
-        "query": {
-          "query": "$mountpoint",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "/(.*)/",
-        "skipUrlSync": false,
-        "sort": 0,
-        "type": "textbox",
-        "current": {
-          "value": "${mountpoint:pipe}",
-          "text": "${mountpoint:pipe}"
-        }
       },
       {
         "datasource": {
@@ -1958,7 +1912,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-7d",
     "to": "now"
   },
   "timepicker": {},
