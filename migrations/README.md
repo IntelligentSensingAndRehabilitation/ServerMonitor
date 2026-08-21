@@ -42,3 +42,25 @@ Notes:
 - Series recorded before the grouping change keep their `instance` label and remain
   alongside the converted ones until they age out of retention. They show up as a
   duplicate line on range panels for that window.
+
+### Second pass: the projection rules
+
+`rules_pre.yml` and `rules_post.yml` rebuild only the four base series. The growth and
+`days_until_full` rules are derived, so they start from zero and leave the storage-rate
+panel empty. Once the base series are in the TSDB, `rules_projection.yml` rebuilds those
+too, reading the recorded `fs:physical:used_bytes` and `avail_bytes`:
+
+```bash
+docker run --rm --user 0 --network <monitoring-net> \
+  -v "$PWD/migrations":/r:ro -v /some/out2:/out \
+  --entrypoint promtool prom/prometheus:v3.8.0 \
+  tsdb create-blocks-from rules --quiet \
+    --start <data-start + 8 days> \
+    --url http://prometheus-c:9090 --output-dir /out /r/rules_projection.yml
+```
+
+Start at least 8 days after the earliest data, or the 7-day offset window is empty.
+`days_until_full` inlines its growth term rather than reading the recorded growth
+series, so one pass covers all three rules. Expect `growth_bytes_per_day_28d` to begin
+28 days after the earliest sample, and `days_until_full` to be sparse by design: it
+exists only while a drive is actually filling.

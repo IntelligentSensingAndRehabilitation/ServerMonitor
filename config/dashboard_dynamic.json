@@ -286,7 +286,9 @@
             "uid": "prometheus"
           },
           "expr": "fs:physical:used_percent{hostname=~\"$host\",mountpoint=\"$mountpoint\"}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ],
       "title": "$mountpoint",
@@ -1468,7 +1470,9 @@
           },
           "expr": "avg_over_time(avg(DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"})[24h:5m])",
           "legendFormat": "Avg GPU Utilization (24h)",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ],
       "title": "Fleet Avg Util (24h)",
@@ -1541,7 +1545,9 @@
           "expr": "count_over_time((DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"} > 10)[24h:5m]) / count_over_time(DCGM_FI_DEV_GPU_UTIL{hostname=~\"$host\"}[24h:5m]) * 24",
           "legendFormat": "GPU {{gpu}}",
           "refId": "A",
-          "interval": "5m"
+          "interval": "5m",
+          "instant": true,
+          "range": false
         }
       ],
       "title": "GPU-Hours Active per Day (24h avg)",
@@ -1616,7 +1622,9 @@
           },
           "expr": "DCGM_FI_DEV_XID_ERRORS{hostname=~\"$host\"}",
           "legendFormat": "GPU {{gpu}}",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ],
       "title": "XID Errors",
