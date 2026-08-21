@@ -282,8 +282,8 @@ groups:
       model:
         expr: |-
           fs:physical:days_until_full
-            and on(hostname, instance, device, mountpoint) (fs:physical:growth_bytes_per_day_28d > 0)
-            and on(hostname, instance, device, mountpoint) (fs:physical:used_percent > 75)
+            and on(hostname, device, mountpoint) (fs:physical:growth_bytes_per_day_28d > 0)
+            and on(hostname, device, mountpoint) (fs:physical:used_percent > 75)
         interval: ''
         refId: A
         datasource:
