@@ -1,7 +1,7 @@
 {
   "physical_drives": {
     "fstypes": ["ext4", "ext3", "xfs", "btrfs", "zfs"],
-    "mountpoint_exclude_regex": "/(boot|snap|run|dev|proc|sys|var/lib|autofs)(|/.*)"
+    "mountpoint_exclude_regex": "/(boot|snap|run|dev|proc|sys|var/lib|var/snap|autofs)(|/.*)"
   },
 
   "rule_group_intervals": {

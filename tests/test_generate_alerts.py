@@ -72,6 +72,11 @@ class TestPhysicalDriveSelection:
             ("ext4", "/var/lib/kubelet/pods/abc/volume"),  # k8s PVCs are ext4
             ("ext4", "/var/lib/docker/overlay2/xyz"),
             ("squashfs", "/snap/core/1234"),
+            # Found on jc-aurora when these rules were first run against the cluster:
+            # a snap bind-mounts the root device at /var/snap/..., which passed an
+            # exclude list that only covered /var/lib, so the node's root filesystem
+            # was counted a second time as a separate drive.
+            ("ext4", "/var/snap/firefox/common/host-hunspell"),
             ("tmpfs", "/run/user/1001"),
         ],
     )
