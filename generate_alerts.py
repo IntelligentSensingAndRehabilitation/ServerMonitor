@@ -172,13 +172,21 @@ def build_recording_rules(config: dict) -> dict:
                     {"record": growth_metric, "expr": growth_expr(growth_window, growth_days)},
                     {"record": confirm_metric, "expr": growth_expr(confirm_window, confirm_days)},
                     {
+                        # Free space comes from the RAW metric, current and unaveraged.
+                        # Only the RATE needs smoothing and it already is, over 7 days.
+                        # Averaging available bytes over a day made this lag reality by up
+                        # to a day -- after /mnt/data2 was emptied from 100% it still read
+                        # 2 days to full. Reading raw rather than the recorded avail_bytes
+                        # also keeps staleness propagating: instant-selecting a recorded
+                        # series would keep this alive for a lookback window after a drive
+                        # disappears.
                         # Absent when a drive is not filling, which is why the alert that
                         # consumes it sets noDataState: OK. Clamped so an almost-flat
                         # drive reports a bounded horizon instead of millions of days.
                         "record": "fs:physical:days_until_full",
                         "expr": (
                             f"clamp_max(\n"
-                            f"    avg_over_time(fs:physical:avail_bytes[1d]) / ({growth_metric} > 0),\n"
+                            f"    {avail} / ({growth_metric} > 0),\n"
                             f"    730\n"
                             f"  )"
                         ),
