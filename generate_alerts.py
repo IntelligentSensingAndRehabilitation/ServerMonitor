@@ -47,16 +47,19 @@ WATCHDOG_QUERY_RANGE_SECONDS = 120
 # Labels that identify one filesystem on one host. Every projection rule joins on
 # exactly this set, so they must all be produced by the same `by` clause.
 #
-# `instance` is deliberately excluded. It carries the exporter's address, which
-# changes whenever the exporter moves -- a container renamed, a host switching from
-# an external scrape target to a Kubernetes node-exporter DaemonSet. Including it
-# made those moves start a brand new series, discarding the growth history and
-# blanking days_until_full for 29 days. Identity is the drive, not the scraper.
+# `instance` and `device` are both deliberately excluded. `instance` carries the
+# exporter's address, which changes whenever the exporter moves -- a container
+# renamed, a host switching from an external scrape target to a Kubernetes
+# node-exporter DaemonSet. `device` changes on disk swaps and NVMe re-enumeration;
+# a reboot of jc-compute01 renumbered /mnt/data2 from nvme0n1 to nvme1n1 and split
+# it into two series. Either one starts a brand new series on a change that is not
+# a change to the drive, discarding growth history and blanking days_until_full for
+# 29 days. What is monitored is the drive mounted at a path on a host.
 #
 # This makes an explicit `hostname` label on every scrape target mandatory: without
 # one, drives on different hosts that share a device and mountpoint name would
 # collapse into a single series.
-FS_LABELS = "hostname, device, mountpoint"
+FS_LABELS = "hostname, mountpoint"
 
 DURATION_PATTERN = re.compile(r"^(\d+)([smhd])$")
 DURATION_MULTIPLIERS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
