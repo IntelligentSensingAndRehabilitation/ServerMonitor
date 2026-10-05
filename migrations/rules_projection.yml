@@ -1,0 +1,27 @@
+# Backfill the projection rules over the already-converted fs:physical:* history.
+groups:
+- name: backfill_storage_projection
+  interval: 5m
+  rules:
+  - record: fs:physical:growth_bytes_per_day_7d
+    expr: |-
+      (
+        avg_over_time(fs:physical:used_bytes[1d])
+        - avg_over_time(fs:physical:used_bytes[1d] offset 7d)
+      ) / 7
+  - record: fs:physical:growth_bytes_per_day_28d
+    expr: |-
+      (
+        avg_over_time(fs:physical:used_bytes[1d])
+        - avg_over_time(fs:physical:used_bytes[1d] offset 28d)
+      ) / 28
+  - record: fs:physical:days_until_full
+    expr: |-
+      clamp_max(
+        avg_over_time(fs:physical:avail_bytes[1d])
+        / (((
+        avg_over_time(fs:physical:used_bytes[1d])
+        - avg_over_time(fs:physical:used_bytes[1d] offset 7d)
+      ) / 7) > 0),
+        730
+      )
